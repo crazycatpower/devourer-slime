@@ -1,0 +1,139 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/ui/settings/settings_panel.gd" id="1_script"]
+
+[node name="SettingsPanel" type="VBoxContainer"]
+theme_override_constants/separation = 14
+script = ExtResource("1_script")
+
+[node name="VolumeHeader" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="VolumeHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 22
+text = "音量大小 VOLUME"
+
+[node name="VolumeValue" type="Label" parent="VolumeHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(0.2039, 0.8275, 0.6, 1)
+theme_override_font_sizes/font_size = 22
+text = "80%"
+
+[node name="VolumeRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MuteButton" type="Button" parent="VolumeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_type_variation = &"ChipButton"
+toggle_mode = true
+text = "靜音"
+
+[node name="VolumeSlider" type="HSlider" parent="VolumeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 100.0
+step = 1.0
+value = 80.0
+
+[node name="SpeedHeader" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="SpeedHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 22
+text = "遊戲速度 GAME SPEED"
+
+[node name="SpeedValue" type="Label" parent="SpeedHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_colors/font_color = Color(0.2039, 0.8275, 0.6, 1)
+theme_override_font_sizes/font_size = 22
+text = "x1.0"
+
+[node name="SpeedRow" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BulletTimeTitle" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 22
+text = "子彈時間 BULLET TIME"
+
+[node name="ToggleRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BulletTimeButton" type="Button" parent="ToggleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"ChipButton"
+toggle_mode = true
+text = "已啟用 (Enabled)"
+
+[node name="FullscreenButton" type="Button" parent="ToggleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"ChipButton"
+toggle_mode = true
+text = "全螢幕：關"
+
+[node name="BulletTimeHint" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 17
+text = "長按射擊鍵會放慢時間並顯示輔助線，放開即發射。"
+
+[node name="Controls" type="PanelContainer" parent="."]
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="VBox" type="VBoxContainer" parent="Controls"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="Controls/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Controls/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CaptionLabel"
+text = "操作按鍵 CONTROLS"
+
+[node name="ResetBindingsButton" type="Button" parent="Controls/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"ChipButton"
+text = "恢復預設"
+
+[node name="BindingGrid" type="GridContainer" parent="Controls/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 8
+columns = 4
+
+[node name="BindingHint" type="Label" parent="Controls/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "點選按鍵後按下新的按鍵。"
+autowrap_mode = 3

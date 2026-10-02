@@ -1,0 +1,17 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Exported builds
+/build/
+*.pck
+*.exe
+*.apk
+*.aab
+*.ipa
+*.dmg
+*.x86_64
+*.x86_32
+
+# Local test output
+/tests/output/

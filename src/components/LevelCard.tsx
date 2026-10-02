@@ -1,0 +1,79 @@
+import { Play, Hammer } from 'lucide-react';
+
+export function LevelCard({
+  id,
+  lvlIndex,
+  curWorld,
+  lobbyTab,
+  hasCustom,
+  setHoveredLevelId,
+  onPlayOfficial,
+  onPlayTest,
+  onEdit
+}: any) {
+  return (
+    <div 
+        onMouseEnter={() => setHoveredLevelId(id)}
+        onMouseLeave={() => setHoveredLevelId(null)}
+        className={`group relative overflow-hidden rounded-2xl p-6 flex flex-col justify-between h-56 shadow-lg shadow-black/40 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 select-none cursor-pointer border ${
+            lobbyTab === 'custom' && hasCustom 
+              ? 'border-indigo-500/50 hover:border-indigo-400 shadow-indigo-950/20 bg-[#0f1129]/90' 
+              : `${curWorld.cardBorder} bg-[#0d1226]/80`
+        }`}
+    >
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-slate-905/10 to-slate-900/40 pointer-events-none"></div>
+        <div className="absolute inset-[1px] rounded-[15px] pointer-events-none z-0 bg-[#0c1024]/90"></div>
+
+        {lobbyTab === 'custom' && (
+            hasCustom ? (
+                <span className="absolute top-3.5 right-3.5 z-20 text-[8px] font-mono font-black tracking-widest text-[#a5b4fc] bg-indigo-950/80 border border-indigo-500/30 py-0.5 px-2 rounded-md animate-pulse">
+                    CUSTOM SAVED
+                </span>
+            ) : (
+                <span className="absolute top-3.5 right-3.5 z-20 text-[8px] font-mono font-black tracking-widest text-slate-500 bg-slate-950/80 border border-slate-800 py-0.5 px-2 rounded-md">
+                    EMPTY
+                </span>
+            )
+        )}
+
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center pt-8 pb-3">
+            <span className={`text-5xl md:text-6xl font-black font-mono tracking-tighter transition-all duration-300 group-hover:scale-105 ${
+                lobbyTab === 'official'
+                ? `${curWorld.levelNumColor}`
+                : 'text-indigo-500/70 group-hover:text-indigo-400'
+            }`}>
+                {lvlIndex < 10 ? `0${lvlIndex}` : lvlIndex}
+            </span>
+        </div>
+
+        <div className="relative z-10 w-full">
+            {lobbyTab === 'official' ? (
+                <button 
+                    onClick={() => onPlayOfficial(id)}
+                    className={`w-full py-2.5 text-white font-black uppercase text-[11px] tracking-wider transition-all rounded-xl shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01] bg-gradient-to-r ${curWorld.btnGrad}`}
+                >
+                    <Play className="w-3 h-3 fill-current text-white" />
+                    <span>PLAY</span>
+                </button>
+            ) : (
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => onEdit(id)}
+                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-850 text-indigo-300 border border-indigo-500/35 font-extrabold text-[10px] tracking-wider transition-all rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                        <Hammer className="w-3 h-3 text-indigo-400" />
+                        <span>編輯設計</span>
+                    </button>
+                    <button 
+                        onClick={() => onPlayTest(id)}
+                        className="flex-1 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-[10px] tracking-wider transition-all rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>測試冒險</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+}

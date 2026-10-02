@@ -1,0 +1,5 @@
+# Normalize EOL for all files that Git considers text files.
+* text=auto eol=lf
+
+# Golden-master reference traces are generated; keep them out of diffs.
+tests/parity/reference/*.json linguist-generated=true -diff

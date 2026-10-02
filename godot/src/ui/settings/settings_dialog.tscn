@@ -1,0 +1,115 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/ui/settings/settings_dialog.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://src/ui/settings/settings_panel.tscn" id="2_panel"]
+
+[node name="SettingsDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Dim" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.62)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+theme_type_variation = &"ModalPanel"
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Header" type="MarginContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 18
+
+[node name="HBox" type="HBoxContainer" parent="Center/Panel/VBox/Header"]
+layout_mode = 2
+
+[node name="DialogTitle" type="Label" parent="Center/Panel/VBox/Header/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"HeadingLabel"
+text = "遊戲設定 MENU"
+
+[node name="CloseButton" type="Button" parent="Center/Panel/VBox/Header/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+theme_type_variation = &"ChipButton"
+text = "×"
+
+[node name="HeaderLine" type="HSeparator" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Body" type="MarginContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 22
+
+[node name="SettingsPanel" parent="Center/Panel/VBox/Body" instance=ExtResource("2_panel")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FooterLine" type="HSeparator" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Footer" type="MarginContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 22
+
+[node name="HBox" type="HBoxContainer" parent="Center/Panel/VBox/Footer"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="MenuButton" type="Button" parent="Center/Panel/VBox/Footer/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "返回主選單"
+
+[node name="EditorButton" type="Button" parent="Center/Panel/VBox/Footer/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"IndigoButton"
+text = "返回編輯"
+
+[node name="ResumeButton" type="Button" parent="Center/Panel/VBox/Footer/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"AccentButton"
+text = "繼續遊戲"

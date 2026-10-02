@@ -1,0 +1,401 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/editor/editor_screen.gd" id="1_script"]
+[ext_resource type="Script" path="res://src/ui/common/menu_backdrop.gd" id="2_backdrop"]
+[ext_resource type="Script" path="res://src/render/world_view.gd" id="3_view"]
+[ext_resource type="PackedScene" path="res://src/ui/common/confirm_dialog.tscn" id="4_confirm"]
+
+[node name="EditorScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Backdrop" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_backdrop")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="HeaderBar" type="PanelContainer" parent="VBox"]
+layout_mode = 2
+theme_type_variation = &"BarPanel"
+
+[node name="HBox" type="HBoxContainer" parent="VBox/HeaderBar"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="MenuButton" type="Button" parent="VBox/HeaderBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "←  選單 Menu"
+
+[node name="Brand" type="VBoxContainer" parent="VBox/HeaderBar/HBox"]
+layout_mode = 2
+theme_override_constants/separation = -4
+alignment = 1
+
+[node name="Title" type="Label" parent="VBox/HeaderBar/HBox/Brand"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 22
+text = "史萊姆方塊吞噬者 · 關卡編輯器"
+
+[node name="SlotCaption" type="Label" parent="VBox/HeaderBar/HBox/Brand"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "WORLD 1  //  LEVEL 1"
+
+[node name="SpacerLeft" type="Control" parent="VBox/HeaderBar/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayButton" type="Button" parent="VBox/HeaderBar/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"AccentButton"
+text = "▶  測試冒險 Play"
+
+[node name="SpacerRight" type="Control" parent="VBox/HeaderBar/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PrevButton" type="Button" parent="VBox/HeaderBar/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "<"
+
+[node name="SlotLabel" type="Label" parent="VBox/HeaderBar/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 22
+text = "SLOT 01"
+horizontal_alignment = 1
+
+[node name="NextButton" type="Button" parent="VBox/HeaderBar/HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = ">"
+
+[node name="Body" type="MarginContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 18
+
+[node name="HBox" type="HBoxContainer" parent="VBox/Body"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="CanvasArea" type="VBoxContainer" parent="VBox/Body/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="InfoRibbon" type="PanelContainer" parent="VBox/Body/HBox/CanvasArea"]
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="HBox" type="HBoxContainer" parent="VBox/Body/HBox/CanvasArea/InfoRibbon"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="SlotInfo" type="Label" parent="VBox/Body/HBox/CanvasArea/InfoRibbon/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"CaptionLabel"
+text = "SLOT 01（WORLD 1）"
+
+[node name="DirtyLabel" type="Label" parent="VBox/Body/HBox/CanvasArea/InfoRibbon/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_colors/font_color = Color(0.9843, 0.749, 0.1412, 1)
+text = "● 尚未儲存"
+
+[node name="SizeInfo" type="Label" parent="VBox/Body/HBox/CanvasArea/InfoRibbon/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "40 × 15"
+
+[node name="Frame" type="AspectRatioContainer" parent="VBox/Body/HBox/CanvasArea"]
+layout_mode = 2
+size_flags_vertical = 3
+ratio = 1.7778
+
+[node name="WorldView" type="Control" parent="VBox/Body/HBox/CanvasArea/Frame"]
+unique_name_in_owner = true
+layout_mode = 2
+script = ExtResource("3_view")
+
+[node name="Hint" type="Label" parent="VBox/Body/HBox/CanvasArea"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "左鍵繪製 · 右鍵擦除 · 中鍵拖曳或方向鍵（W A S D）移動視角 · Ctrl+Z 復原 · Ctrl+Y 重做 · Ctrl+S 儲存"
+horizontal_alignment = 1
+
+[node name="Sidebar" type="PanelContainer" parent="VBox/Body/HBox"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_type_variation = &"BarPanel"
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/Body/HBox/Sidebar"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="BrushTitle" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+layout_mode = 2
+theme_type_variation = &"HeadingLabel"
+theme_override_font_sizes/font_size = 20
+text = "編輯筆刷 BRUSHES"
+
+[node name="BrushGrid" type="GridContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 4
+
+[node name="SpikePanel" type="PanelContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SpikePanel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SpikePanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "尖刺朝向（貼著單一方塊時會自動轉向）"
+
+[node name="SpikeRow" type="HBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SpikePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HistoryRow" type="HBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UndoButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/HistoryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "復原 Undo"
+
+[node name="RedoButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/HistoryRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "重做 Redo"
+
+[node name="SizePanel" type="PanelContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "地圖大小 MAP SIZE"
+
+[node name="Steppers" type="HBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WidthCaption" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "寬"
+
+[node name="WidthMinus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "−"
+
+[node name="WidthValue" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "40"
+horizontal_alignment = 1
+
+[node name="WidthPlus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "+"
+
+[node name="HeightCaption" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_font_sizes/font_size = 16
+text = "高"
+
+[node name="HeightMinus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "−"
+
+[node name="HeightValue" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "15"
+horizontal_alignment = 1
+
+[node name="HeightPlus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "+"
+
+[node name="PresetGrid" type="GridContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 3
+
+[node name="BackupPanel" type="PanelContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+layout_mode = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="VBox" type="VBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox"]
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "匯出 / 匯入 BACKUP"
+
+[node name="ExportRow" type="HBoxContainer" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ExportSlotButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox/ExportRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "複製此關"
+
+[node name="ExportAllButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox/ExportRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "複製全部存檔"
+
+[node name="ImportText" type="TextEdit" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+placeholder_text = "在此貼上關卡 JSON（單一關卡陣列，或多關卡打包）"
+wrap_mode = 1
+
+[node name="ImportError" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+theme_override_colors/font_color = Color(0.9725, 0.4431, 0.4431, 1)
+theme_override_font_sizes/font_size = 16
+text = "錯誤"
+autowrap_mode = 3
+
+[node name="ImportButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/BackupPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "執行匯入 IMPORT"
+
+[node name="SaveButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"IndigoButton"
+text = "儲存關卡 SAVE"
+
+[node name="RevertButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "還原為內建關卡"
+
+[node name="ClearButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+theme_type_variation = &"ChipButton"
+text = "清空畫布 CLEAR"
+
+[node name="ConfirmDialog" parent="." instance=ExtResource("4_confirm")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1

@@ -1,0 +1,73 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://src/ui/menu/level_card.gd" id="1_script"]
+[ext_resource type="Script" path="res://src/ui/common/tile_icon.gd" id="2_icon"]
+
+[node name="LevelCard" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 128)
+size_flags_horizontal = 3
+theme_type_variation = &"CardPanel"
+script = ExtResource("1_script")
+
+[node name="HBox" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Icon" type="Control" parent="HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("2_icon")
+
+[node name="Number" type="Label" parent="HBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 0)
+layout_mode = 2
+theme_type_variation = &"NumberLabel"
+theme_override_font_sizes/font_size = 62
+text = "01"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Info" type="VBoxContainer" parent="HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="Title" type="Label" parent="HBox/Info"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"CaptionLabel"
+text = "SLOT 01"
+
+[node name="Badges" type="HBoxContainer" parent="HBox/Info"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 31)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Buttons" type="HBoxContainer" parent="HBox/Info"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PlayButton" type="Button" parent="HBox/Info/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "PLAY"
+
+[node name="EditButton" type="Button" parent="HBox/Info/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"IndigoButton"
+text = "編輯設計"
+
+[node name="TestButton" type="Button" parent="HBox/Info/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"AccentButton"
+text = "測試冒險"
