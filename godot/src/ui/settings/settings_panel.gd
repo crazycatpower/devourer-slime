@@ -109,10 +109,10 @@ func _refresh() -> void:
 		var button: Button = _binding_buttons[action]
 		var listening: bool = action == _capturing
 		button.set_pressed_no_signal(listening)
-		button.text = _LISTENING_TEXT if listening else InputBindings.describe(Settings.binding(action))
+		button.text = _LISTENING_TEXT if listening else InputBindings.describe_full(action, Settings.binding(action))
 	_binding_hint.text = (
 		"請按下要使用的按鍵或滑鼠鍵（Esc 取消）" if is_capturing()
-		else "點選按鍵後按下新的按鍵；與其他動作重複時會自動互換。"
+		else "已支援 WASD、方向鍵（上下左右）與空白鍵（空格跳躍）同時操作。點選可自訂主要按鍵。"
 	)
 
 

@@ -2,7 +2,7 @@ class_name Palette
 extends RefCounted
 ## Colour constants shared by the simulation (particles) and the renderers.
 ##
-## Names follow the Tailwind palette the web version used so that colours can
+## Names follow the shared palette so that colours can
 ## be traced back to the original source.
 
 const WHITE: Color = Color("ffffff")
@@ -17,7 +17,6 @@ const SLATE_800: Color = Color("1e293b")
 const SLATE_900: Color = Color("0f172a")
 const SLATE_950: Color = Color("020617")
 const ZINC_200: Color = Color("e4e4e7")
-const ZINC_500: Color = Color("71717a")
 const ZINC_600: Color = Color("52525b")
 
 const RED_300: Color = Color("fca5a5")
@@ -25,9 +24,7 @@ const RED_400: Color = Color("f87171")
 const RED_500: Color = Color("ef4444")
 const RED_600: Color = Color("dc2626")
 const ROSE_500: Color = Color("f43f5e")
-const ROSE_600: Color = Color("e11d48")
 
-const ORANGE_500: Color = Color("f97316")
 const ORANGE_600: Color = Color("ea580c")
 
 const AMBER_100: Color = Color("fef3c7")
@@ -39,7 +36,6 @@ const AMBER_800: Color = Color("92400e")
 const AMBER_900: Color = Color("78350f")
 const YELLOW_200: Color = Color("fef08a")
 const YELLOW_500: Color = Color("eab308")
-const YELLOW_600: Color = Color("ca8a04")
 
 const LIME_400: Color = Color("a3e635")
 const GREEN_400: Color = Color("4ade80")
@@ -48,7 +44,6 @@ const GREEN_600: Color = Color("16a34a")
 const EMERALD_400: Color = Color("34d399")
 const EMERALD_500: Color = Color("10b981")
 const EMERALD_600: Color = Color("059669")
-const TEAL_600: Color = Color("0d9488")
 
 const CYAN_200: Color = Color("a5f3fc")
 const CYAN_400: Color = Color("22d3ee")
@@ -56,7 +51,6 @@ const CYAN_500: Color = Color("06b6d4")
 const CYAN_600: Color = Color("0891b2")
 const SKY_100: Color = Color("e0f2fe")
 const SKY_400: Color = Color("38bdf8")
-const SKY_500: Color = Color("0ea5e9")
 const BLUE_500: Color = Color("3b82f6")
 const INDIGO_300: Color = Color("a5b4fc")
 const INDIGO_400: Color = Color("818cf8")
@@ -84,7 +78,3 @@ const APP_BACKGROUND: Color = Color("070b1a")
 ## Colour of the dark "void" interior used by void tiles.
 const VOID_BACKGROUND: Color = Color("0a0518")
 
-
-## Returns [param color] with its alpha replaced by [param alpha].
-static func with_alpha(color: Color, alpha: float) -> Color:
-	return Color(color.r, color.g, color.b, alpha)

@@ -36,6 +36,23 @@ static func shield_count_for(durability: int) -> int:
 	return 8 if durability == 2 else 12
 
 
+## A fresh ring is immediately usable for both rendering and collision.
+static func regenerate_shields(sim: GameSim) -> void:
+	sim.boss.shields = BossState.make_shield_ring(shield_count_for(sim.boss.durability))
+	sync_orbiting_shields(sim)
+
+
+static func sync_orbiting_shields(sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	for shield: ShieldState in boss.shields:
+		if not shield.active or shield.mode != ShieldState.Mode.ORBIT:
+			continue
+		var angle: float = sim.clock_ms() / ORBIT_PERIOD_MS + shield.angle_offset
+		shield.radius = BossState.SHIELD_ORBIT_RADIUS
+		shield.cx = boss.center_x() + cos(angle) * shield.radius
+		shield.cy = boss.center_y() + sin(angle) * shield.radius
+
+
 static func update(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	if boss.damage_flash > 0.0:
@@ -70,11 +87,12 @@ static func update(sim: GameSim) -> void:
 			if boss.cooldown <= 0:
 				boss.cooldown = ATTACK_COOLDOWN_TICKS
 				_attack(sim)
+	sync_orbiting_shields(sim)
 
 
 ## Handles a player projectile at ([param cx], [param cy]). Returns true when
 ## it hit a shield or the core and must be removed.
-static func hit_by_projectile(sim: GameSim, cx: float, cy: float) -> bool:
+static func hit_by_projectile(sim: GameSim, cx: float, cy: float, preview: bool = false) -> bool:
 	var boss: BossState = sim.boss
 	for shield: ShieldState in boss.shields:
 		if not shield.active:
@@ -82,6 +100,8 @@ static func hit_by_projectile(sim: GameSim, cx: float, cy: float) -> bool:
 		var sdx: float = cx - shield.cx
 		var sdy: float = cy - shield.cy
 		if sqrt(sdx * sdx + sdy * sdy) < SHIELD_HIT_RADIUS:
+			if preview:
+				return true
 			shield.active = false
 			sim.play(Sfx.Id.BOUNCE)
 			sim.spawn_particles(cx, cy, BODY_COLOR, 20, 5.0)
@@ -94,6 +114,8 @@ static func hit_by_projectile(sim: GameSim, cx: float, cy: float) -> bool:
 	if sqrt(cdx * cdx + cdy * cdy) >= CORE_HIT_RADIUS:
 		return false
 
+	if preview:
+		return true
 	boss.durability -= 1
 	boss.damage_flash = 1.0
 	boss.scale_x = 1.45
@@ -104,7 +126,7 @@ static func hit_by_projectile(sim: GameSim, cx: float, cy: float) -> bool:
 	sim.spawn_particles(bcx, bcy, Palette.AMBER_400, 20, 6.0)
 
 	if boss.durability > 0:
-		boss.shields = BossState.make_shield_ring(shield_count_for(boss.durability))
+		regenerate_shields(sim)
 		return true
 
 	BossSystem.defeat(sim)
@@ -230,7 +252,7 @@ static func _attack(sim: GameSim) -> void:
 
 	if boss.dirt_shots_fired >= DIRT_VOLLEYS_PER_CYCLE:
 		boss.dirt_shots_fired = 0
-		boss.shields = BossState.make_shield_ring(shield_count_for(boss.durability))
+		regenerate_shields(sim)
 		sim.spawn_particles(bx, by, BODY_COLOR, 25, 6.5)
 		sim.play(Sfx.Id.BOUNCE)
 

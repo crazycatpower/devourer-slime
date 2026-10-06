@@ -1,5 +1,5 @@
 extends TestCase
-## Tile classification must match the web version's `physicsUtils.ts`.
+## Tile classification and stable save IDs.
 
 const SOLID: Array[int] = [1, 2, 5, 6, 11, 12, 15, 25]
 const EATABLE: Array[int] = [1, 5, 11, 12, 15, 25]

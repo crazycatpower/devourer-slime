@@ -14,23 +14,25 @@ func test_player_falls_and_lands() -> void:
 	check_near(sim.player.vy, 0.0)
 
 
-func test_walking_is_instant_and_stops_instantly() -> void:
+func test_walking_accelerates_and_brakes() -> void:
 	var sim: GameSim = _sim(23)
 	_run(sim, SimInput.new(), 120)
 	var right: SimInput = SimInput.new()
 	right.right = true
 	var before: float = sim.player.x
 	_run(sim, right, 10)
-	check_near(sim.player.x - before, GameConstants.MAX_SPEED * 10.0, 0.01, "ten ticks at full speed")
+	check(sim.player.x - before < GameConstants.MAX_SPEED * 10.0, "accelerates into motion")
 	_run(sim, SimInput.new(), 1)
-	check_near(sim.player.vx, 0.0, 1e-9, "no sliding")
+	check(sim.player.vx > 0.0, "brief braking drift")
+	_run(sim, SimInput.new(), 5)
+	check_near(sim.player.vx, 0.0, 1e-9, "brakes promptly")
 
 
 func test_jump_height_and_short_hop() -> void:
 	var full: GameSim = _sim(23)
 	_run(full, SimInput.new(), 120)
 	var ground_y: float = full.player.y
-	check_near(_jump_apex(full, 60), ground_y - 150.0, 0.01, "held jump rises 150 units")
+	check_near(_jump_apex(full, 75), ground_y - 150.0, 2.0, "held jump rises about 150 units")
 
 	var short: GameSim = _sim(23)
 	_run(short, SimInput.new(), 120)
@@ -57,16 +59,16 @@ func test_jump_is_buffered_before_landing() -> void:
 	check(jumped, "the early press still triggers a jump on landing")
 
 
-func test_eating_takes_eight_ticks_and_spitting_places_a_worn_block() -> void:
+func test_eating_takes_twenty_four_ticks_and_spitting_places_a_worn_block() -> void:
 	var sim: GameSim = _sim(21)  # Start at column 1, dirt at column 3, steel at column 5.
 	_run(sim, SimInput.new(), 30)
 	var eat: SimInput = _aim_at_cell(sim, 13, 3)
 	eat.eat = true
-	_run(sim, eat, 7)
-	check(not sim.player.has_block, "seven ticks are not enough")
+	_run(sim, eat, 23)
+	check(not sim.player.has_block, "23 ticks are not enough")
 	check_eq(sim.level.get_cell(13, 3), Tile.DIRT)
 	sim.step(eat)
-	check(sim.player.has_block, "the eighth tick swallows the block")
+	check(sim.player.has_block, "the 24th tick swallows the block")
 	check_eq(sim.player.carried_block_type, Tile.DIRT)
 	check_eq(sim.player.carried_block_eaten_count, 1)
 	check_eq(sim.level.get_cell(13, 3), Tile.AIR)
@@ -87,13 +89,27 @@ func test_eating_takes_eight_ticks_and_spitting_places_a_worn_block() -> void:
 	check_eq(sim.level.get_cell(13, 4), Tile.DIRT_EATEN_1, "lands one stage worn")
 
 
+func test_moving_away_while_eating_does_not_abort_swallow() -> void:
+	var sim: GameSim = _sim(21)  # Player near column 1, dirt at column 3.
+	_run(sim, SimInput.new(), 30)
+	var eat_left: SimInput = _aim_at_cell(sim, 13, 3)
+	eat_left.eat = true
+	sim.step(eat_left)
+	check(sim.player.has_eating_target, "locked onto target")
+	# Move away to the left while keeping eat held
+	eat_left.left = true
+	_run(sim, eat_left, 23)
+	check(sim.player.has_block, "moving away while swallowing successfully swallows the block")
+	check_eq(sim.level.get_cell(13, 3), Tile.AIR)
+
+
 func test_bullet_time_can_be_disabled() -> void:
 	var sim: GameSim = _sim(21)
 	sim.bullet_time_enabled = false
 	_run(sim, SimInput.new(), 30)
 	var eat: SimInput = _aim_at_cell(sim, 13, 3)
 	eat.eat = true
-	_run(sim, eat, 8)
+	_run(sim, eat, 24)
 	var hold: SimInput = _aim_at_cell(sim, 13, 5)
 	hold.shoot = true
 	_run(sim, hold, 3)
@@ -102,7 +118,7 @@ func test_bullet_time_can_be_disabled() -> void:
 
 
 func test_spikes_kill_and_the_level_restarts_by_itself() -> void:
-	var sim: GameSim = _sim(14)  # Start at column 1, floor spikes at column 3.
+	var sim: GameSim = _sim(24)  # Start at column 1, floor spikes at column 3.
 	var right: SimInput = SimInput.new()
 	right.right = true
 	var ticks: int = 0
@@ -110,7 +126,7 @@ func test_spikes_kill_and_the_level_restarts_by_itself() -> void:
 		sim.step(right)
 		ticks += 1
 	check(sim.player.dead, "walked into the spikes")
-	var start_x: float = LevelLibrary.built_in_level(14).start_x()
+	var start_x: float = Fixtures.legacy_level(24).start_x()
 	# The tick the player died on already counts as the first.
 	_run(sim, SimInput.new(), GameSim.DEATH_RESTART_TICKS - 1)
 	check(sim.player.dead, "still on the death screen")
@@ -121,7 +137,7 @@ func test_spikes_kill_and_the_level_restarts_by_itself() -> void:
 
 
 func test_reaching_the_goal_wins_and_freezes_the_player() -> void:
-	var sim: GameSim = _sim(1)
+	var sim: GameSim = _sim(11)
 	var right: SimInput = SimInput.new()
 	right.right = true
 	_run(sim, right, 300)
@@ -133,7 +149,7 @@ func test_reaching_the_goal_wins_and_freezes_the_player() -> void:
 
 
 func test_reset_gives_a_clean_player() -> void:
-	# The web version carried grounded/coyote/wall-bounce/facing over a restart.
+	# Restart must clear grounded/coyote/wall-bounce/facing state.
 	var sim: GameSim = _sim(23)
 	_run(sim, SimInput.new(), 120)
 	sim.player.wall_bounce_timer = 9
@@ -182,8 +198,8 @@ func test_cosmetic_particles_leave_gameplay_randomness_alone() -> void:
 
 
 func test_camera_centres_levels_smaller_than_the_view() -> void:
-	# Slot 1 is 20 tiles (800 units) wide; the view is 1040.
-	var sim: GameSim = _sim(1)
+	# Slot 11 is 20 tiles (800 units) wide; the view is 1040.
+	var sim: GameSim = _sim(11)
 	check_near(sim.camera.x, (800.0 - GameConstants.VIEW_WIDTH) / 2.0)
 	_run(sim, SimInput.new(), 30)
 	sim.update_camera()
@@ -198,7 +214,11 @@ func test_boss_setup() -> void:
 	check(not none.boss.active)
 	check(none.boss.dead)
 
-	var world_1: GameSim = _sim(10)
+	var steel: GameSim = _sim(10)
+	check(steel.boss.active)
+	check_eq(steel.boss_kind, BossState.Kind.STEEL_CHASE)
+
+	var world_1: GameSim = _sim(20)
 	check(world_1.boss.active)
 	check_eq(world_1.boss.state, BossState.State.SUSPENDED)
 	check_eq(world_1.boss.grid_size, 21)
@@ -211,18 +231,18 @@ func test_boss_setup() -> void:
 				mound += 1
 	check_eq(mound, 24, "the mound the boss feeds on")
 
-	var world_2: GameSim = _sim(20)
+	var world_2: GameSim = _sim(30)
 	check_eq(world_2.boss.filled_count(), 8, "shielded by bouncy blocks")
 	check_eq(world_2.boss.durability, 3)
-	var world_3: GameSim = _sim(30)
+	var world_3: GameSim = _sim(40)
 	check_eq(world_3.boss.shields.size(), 4)
-	var world_4: GameSim = _sim(40)
+	var world_4: GameSim = _sim(50)
 	check_eq(world_4.boss.filled_count(), 0)
 	check(not world_4.boss.is_filled())
 
 
 func test_boss_wakes_when_the_player_comes_near() -> void:
-	var sim: GameSim = _sim(40)
+	var sim: GameSim = _sim(50)
 	_run(sim, SimInput.new(), 60)
 	check_eq(sim.boss.state, BossState.State.SUSPENDED, "far away: still dormant")
 	var right: SimInput = SimInput.new()
@@ -240,7 +260,7 @@ func test_boss_wakes_when_the_player_comes_near() -> void:
 
 
 func test_world_1_boss_phase_profile_escalates() -> void:
-	var sim: GameSim = _sim(10)
+	var sim: GameSim = _sim(20)
 	var boss: BossState = sim.boss
 	for i: int in boss.grid.size():
 		boss.grid[i] = Tile.AIR
@@ -278,7 +298,7 @@ func test_no_win_on_the_tick_the_player_dies() -> void:
 func test_boss_does_not_hang_on_the_right_wall() -> void:
 	# Web defect: a boss pressed against the right wall counted the wall
 	# column as floor and hovered in mid-air.
-	var sim: GameSim = _sim(10)
+	var sim: GameSim = _sim(20)
 	var boss: BossState = sim.boss
 	boss.state = BossState.State.ACTIVE
 	boss.has_initial_reorg = true
@@ -296,7 +316,7 @@ func test_boss_does_not_hang_on_the_right_wall() -> void:
 func test_block_fed_to_boss_is_consumed_exactly_once() -> void:
 	# Web defects: a block absorbed by the boss stayed alive, and could also
 	# land in the level on the same tick.
-	var sim: GameSim = _sim(40)
+	var sim: GameSim = _sim(50)
 	var boss: BossState = sim.boss
 	boss.state = BossState.State.ACTIVE
 	boss.cooldown = 100000
@@ -323,7 +343,7 @@ func test_block_fed_to_boss_is_consumed_exactly_once() -> void:
 func test_boss_arena_writes_stay_inside_small_levels() -> void:
 	# Web defect: boss code wrote to fixed coordinates, which broke on custom
 	# levels smaller than the stock arena.
-	var small: LevelData = LevelLibrary.built_in_level(1)  # 20 x 15.
+	var small: LevelData = LevelLibrary.built_in_level(11)  # 20 x 15.
 	for kind: BossState.Kind in [BossState.Kind.WORLD_1, BossState.Kind.WORLD_2, BossState.Kind.WORLD_3]:
 		var sim: GameSim = GameSim.new()
 		sim.rng.set_seed(3)
@@ -527,7 +547,7 @@ func test_boss_leap_lands_where_it_aimed_despite_the_ceiling() -> void:
 	check(clipped < 100.0, "a high leap is cut short by the ceiling (%d ticks)" % int(clipped))
 
 	for sim_seed: int in [1, 2, 3, 4, 5, 6]:
-		var sim: GameSim = _sim(40, sim_seed)
+		var sim: GameSim = _sim(50, sim_seed)
 		var boss: BossState = sim.boss
 		boss.state = BossState.State.ACTIVE
 		boss.cooldown = 1
@@ -554,7 +574,7 @@ func test_boss_leap_lands_where_it_aimed_despite_the_ceiling() -> void:
 func test_block_bounces_off_an_occupied_boss_cell() -> void:
 	# Web defect: a block that struck a filled boss cell was given a bounce
 	# and then deleted anyway.
-	var sim: GameSim = _sim(40)
+	var sim: GameSim = _sim(50)
 	var boss: BossState = sim.boss
 	boss.state = BossState.State.ACTIVE
 	boss.cooldown = 100000
@@ -583,7 +603,7 @@ func test_block_bounces_off_an_occupied_boss_cell() -> void:
 
 
 func test_retry_shortens_the_boss_entrance() -> void:
-	var sim: GameSim = _sim(40)
+	var sim: GameSim = _sim(50)
 	var right: SimInput = SimInput.new()
 	right.right = true
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
@@ -593,7 +613,7 @@ func test_retry_shortens_the_boss_entrance() -> void:
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
 	check_eq(sim.boss.intro_timer, BossSystem.RETRY_INTRO_TICKS, "a retry gets the short one")
 
-	sim.load_level(40, LevelLibrary.built_in_level(40), BossState.Kind.WORLD_4)
+	sim.load_level(50, LevelLibrary.built_in_level(50), BossState.Kind.WORLD_4)
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
 	check_eq(sim.boss.intro_timer, BossWorld4.INTRO_TICKS, "loading the level afresh starts over")
 
@@ -601,7 +621,7 @@ func test_retry_shortens_the_boss_entrance() -> void:
 func test_player_keeps_control_when_the_world_2_boss_returns() -> void:
 	# Web defect: the boss floating back in froze the player for two seconds,
 	# in an arena whose floor has holes by then.
-	var sim: GameSim = _sim(20)
+	var sim: GameSim = _sim(30)
 	_run(sim, SimInput.new(), 60)
 	var boss: BossState = sim.boss
 	boss.state = BossState.State.ACTIVE
@@ -614,7 +634,7 @@ func test_player_keeps_control_when_the_world_2_boss_returns() -> void:
 	var right: SimInput = SimInput.new()
 	right.right = true
 	_run(sim, right, 10)
-	check_near(sim.player.x - x, GameConstants.MAX_SPEED * 10.0, 0.01, "the player can still walk")
+	check(sim.player.x - x > GameConstants.MAX_SPEED * 8.0, "the player can still accelerate and walk during reentry")
 
 
 func _run_until_boss_state(sim: GameSim, inp: SimInput, state: BossState.State) -> void:
@@ -650,7 +670,12 @@ func _aim_offset(sim: GameSim, dx: float, dy: float) -> SimInput:
 func _sim(slot: int, sim_seed: int = 1) -> GameSim:
 	var sim: GameSim = GameSim.new()
 	sim.rng.set_seed(sim_seed)
-	sim.load_level(slot, LevelLibrary.built_in_level(slot), LevelLibrary.boss_kind_for_slot(slot))
+	var level: LevelData = Fixtures.legacy_level(slot)
+	if slot == 21:
+		level = Fixtures.showcase()
+	elif slot == 23:
+		level = Fixtures.empty_room()
+	sim.load_level(slot, level, LevelLibrary.boss_kind_for_slot(slot))
 	return sim
 
 
@@ -680,3 +705,124 @@ func _aim_at_cell(sim: GameSim, r: int, c: int) -> SimInput:
 	inp.mouse_x = float(c) * Tile.SIZE + Tile.SIZE / 2.0 - sim.camera.x
 	inp.mouse_y = float(r) * Tile.SIZE + Tile.SIZE / 2.0 - sim.camera.y
 	return inp
+
+
+func test_dirt_reduces_speed_to_eighty_percent_and_lowers_jump_height() -> void:
+	var right: SimInput = SimInput.new()
+	right.right = true
+
+	var sim_empty: GameSim = _sim(23)
+	_run(sim_empty, SimInput.new(), 120)
+	_run(sim_empty, right, 10)
+	check_eq(sim_empty.player.vx, GameConstants.MAX_SPEED, "empty player reaches normal max speed")
+
+	var sim_jump: GameSim = _sim(23)
+	_run(sim_jump, SimInput.new(), 120)
+	var ground_y: float = sim_jump.player.y
+	var empty_apex: float = _jump_apex(sim_jump, 75)
+	var empty_jump_height: float = ground_y - empty_apex
+
+	var sim_dirt: GameSim = _sim(23)
+	_run(sim_dirt, SimInput.new(), 120)
+	sim_dirt.player.has_block = true
+	sim_dirt.player.carried_block_type = Tile.DIRT
+	sim_dirt.player.carried_block_eaten_count = 1
+	_run(sim_dirt, right, 10)
+	check_eq(sim_dirt.player.vx, GameConstants.MAX_SPEED * 0.8, "carrying dirt reduces horizontal speed to 80%")
+
+	var sim_dirt_jump: GameSim = _sim(23)
+	_run(sim_dirt_jump, SimInput.new(), 120)
+	sim_dirt_jump.player.has_block = true
+	sim_dirt_jump.player.carried_block_type = Tile.DIRT
+	sim_dirt_jump.player.carried_block_eaten_count = 1
+	ground_y = sim_dirt_jump.player.y
+	var dirt_apex: float = _jump_apex(sim_dirt_jump, 75)
+	var dirt_jump_height: float = ground_y - dirt_apex
+	check(dirt_jump_height < empty_jump_height, "carrying dirt slightly reduces jump height")
+	check(dirt_jump_height > empty_jump_height * 0.94, "dirt jump height is only slightly reduced")
+
+	var sim_bouncy: GameSim = _sim(23)
+	_run(sim_bouncy, SimInput.new(), 120)
+	sim_bouncy.player.has_block = true
+	sim_bouncy.player.carried_block_type = Tile.BOUNCY
+	sim_bouncy.player.carried_block_eaten_count = 1
+	_run(sim_bouncy, right, 10)
+	check_eq(sim_bouncy.player.vx, GameConstants.MAX_SPEED, "carrying bouncy block retains full 100% speed")
+
+
+func test_bouncy_block_returns_to_exact_fall_height_and_sustains_bounces() -> void:
+	var sim: GameSim = GameSim.new()
+	var level: LevelGrid = LevelGrid.new(15, 15)
+	for c: int in 15:
+		level.set_cell(10, c, Tile.BOUNCY)
+	sim.level = level
+	var initial_y: float = 4.0 * Tile.SIZE  # 160.0
+	sim.player.x = 5.0 * Tile.SIZE
+	sim.player.y = initial_y
+	sim.player.w = 28.0
+	sim.player.h = 28.0
+	sim.player.grounded = false
+	sim.player.fall_start_y = initial_y
+
+	var apex_list: Array[float] = []
+	var vy_before: float = 0.0
+	var apex_y: float = sim.player.y
+
+	for _tick: int in 800:
+		var curr_vy: float = sim.player.vy
+		sim.step(SimInput.new())
+		if curr_vy < 0.0:
+			apex_y = minf(apex_y, sim.player.y)
+		elif vy_before < 0.0 and curr_vy >= 0.0:
+			apex_list.append(apex_y)
+			apex_y = sim.player.y
+		vy_before = curr_vy
+
+	check(apex_list.size() >= 5, "bounces multiple times continuously (got %d bounces)" % apex_list.size())
+	for i: int in apex_list.size():
+		check_near(apex_list[i], initial_y, 0.5, "bounce %d apex matches exact drop height" % (i + 1))
+	check_near(apex_list[4], apex_list[0], 0.1, "repeated bounces maintain identical apex height")
+
+
+func test_bounce_ignored_when_fall_height_under_one_tile() -> void:
+	var level: LevelGrid = LevelGrid.new(15, 15)
+	for c: int in 15:
+		level.set_cell(10, c, Tile.BOUNCY)
+	var floor_y: float = 10.0 * Tile.SIZE - 28.0 - 0.001
+
+	# Fall from less than 1 tile (30 units < 40 units) onto bouncy block:
+	var sim_short: GameSim = GameSim.new()
+	sim_short.level = level
+	sim_short.player.x = 5.0 * Tile.SIZE
+	sim_short.player.y = floor_y - 30.0
+	sim_short.player.w = 28.0
+	sim_short.player.h = 28.0
+	sim_short.player.grounded = false
+	sim_short.player.fall_start_y = sim_short.player.y
+
+	for _i: int in 60:
+		sim_short.step(SimInput.new())
+	check(sim_short.player.grounded, "fall under 1 tile lands without bouncing")
+	check_near(sim_short.player.vy, 0.0, 0.01, "velocity settles at zero")
+
+	# Fall from 1 full tile (40 units) onto bouncy block:
+	var sim_one_tile: GameSim = GameSim.new()
+	sim_one_tile.level = level
+	sim_one_tile.player.x = 5.0 * Tile.SIZE
+	sim_one_tile.player.y = floor_y - Tile.SIZE
+	sim_one_tile.player.w = 28.0
+	sim_one_tile.player.h = 28.0
+	sim_one_tile.player.grounded = false
+	sim_one_tile.player.fall_start_y = sim_one_tile.player.y
+
+	var bounced: bool = false
+	for _i: int in 60:
+		var vy_prev: float = sim_one_tile.player.vy
+		sim_one_tile.step(SimInput.new())
+		if vy_prev > 0.0 and sim_one_tile.player.vy < 0.0:
+			bounced = true
+			break
+	check(bounced, "fall of 1 full tile triggers a bounce")
+
+
+

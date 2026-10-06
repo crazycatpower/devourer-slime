@@ -28,7 +28,7 @@ func test_grid_duplicate_is_independent() -> void:
 
 
 func test_grid_resize_keeps_interior_and_reborders() -> void:
-	var data: LevelData = LevelLibrary.built_in_level(2)
+	var data: LevelData = Fixtures.legacy_level(12)
 	var bigger: LevelGrid = data.grid.resized(30, 20)
 	check_eq(bigger.cols, 30)
 	check_eq(bigger.rows, 20)
@@ -42,7 +42,7 @@ func test_grid_resize_keeps_interior_and_reborders() -> void:
 
 
 func test_decode_maps_every_character() -> void:
-	var data: LevelData = LevelLibrary.built_in_level(21)  # The tile showcase level.
+	var data: LevelData = Fixtures.showcase()
 	check_eq(data.start_cell, Vector2i(1, 13))
 	check_eq(data.grid.get_cell(13, 1), Tile.AIR, "the start marker leaves air behind")
 	check_eq(data.grid.get_cell(13, 3), Tile.DIRT)
@@ -52,14 +52,14 @@ func test_decode_maps_every_character() -> void:
 	check_eq(data.grid.get_cell(10, 3), Tile.BOUNCY)
 	check_eq(data.grid.get_cell(10, 5), Tile.GLASS)
 	check_eq(data.grid.get_cell(10, 7), Tile.VOID)
-	var sideways: LevelData = LevelLibrary.built_in_level(14)
+	var sideways: LevelData = Fixtures.legacy_level(24)
 	check_eq(sideways.grid.get_cell(9, 8), Tile.SPIKE_LEFT)
 	check_eq(sideways.grid.get_cell(9, 10), Tile.SPIKE_RIGHT)
 	check_eq(sideways.grid.get_cell(10, 9), Tile.SPIKE_DOWN)
 
 
 func test_start_position_is_centred_in_its_cell() -> void:
-	var data: LevelData = LevelLibrary.built_in_level(1)
+	var data: LevelData = Fixtures.legacy_level(11)
 	check_eq(data.start_cell, Vector2i(1, 1))
 	check_near(data.start_x(), 43.0)
 	check_near(data.start_y(), 43.0)
@@ -78,8 +78,8 @@ func test_encode_round_trips_every_built_in_level() -> void:
 
 
 func test_short_rows_are_padded_with_air() -> void:
-	# Slot 17's last row is one character short in the designer's data.
-	var rows: PackedStringArray = LevelLibrary.built_in_rows(17)
+	# Slot 27's last row is one character short in the designer's data.
+	var rows: PackedStringArray = Fixtures.legacy_rows(27)
 	check_eq(rows[14].length(), 24)
 	var data: LevelData = LevelCodec.decode(rows)
 	check_eq(data.grid.cols, 25)
@@ -95,14 +95,14 @@ func test_missing_start_marker_falls_back_to_a_free_cell() -> void:
 
 
 func test_library_slots() -> void:
-	check_eq(LevelLibrary.authored_slots().size(), 22)
+	check_eq(LevelLibrary.authored_slots().size(), 48)
 	check(LevelLibrary.has_authored_layout(1))
-	check(not LevelLibrary.has_authored_layout(10))
-	check(not LevelLibrary.has_authored_layout(23))
-	check_eq(LevelLibrary.built_in_rows(10), LevelLibrary.boss_rows(), "slot 10 uses the boss arena")
-	check_eq(LevelLibrary.built_in_rows(30), LevelLibrary.boss_rows(), "slot 30 uses the boss arena")
-	check_eq(LevelLibrary.built_in_rows(23), LevelLibrary.default_rows(), "slot 23 is a placeholder")
-	check_eq(LevelLibrary.built_in_rows(50), LevelLibrary.default_rows(), "slot 50 is a placeholder")
+	check(not LevelLibrary.has_authored_layout(20))
+	check(LevelLibrary.has_authored_layout(23))
+	check_eq(LevelLibrary.built_in_rows(20), LevelLibrary.boss_rows(), "slot 20 uses the boss arena")
+	check_eq(LevelLibrary.built_in_rows(40), LevelLibrary.boss_rows(), "slot 40 uses the boss arena")
+	check(LevelLibrary.has_authored_layout(10), "world 1 finale is authored")
+	check(LevelLibrary.has_authored_layout(41), "world 5 is authored")
 	check_eq(LevelLibrary.default_rows().size(), 15)
 	check_eq(LevelLibrary.default_rows()[0].length(), 40)
 	check_eq(LevelLibrary.boss_rows()[0].length(), 50)
@@ -111,15 +111,17 @@ func test_library_slots() -> void:
 
 
 func test_library_boss_slots() -> void:
-	check_eq(LevelLibrary.boss_kind_for_slot(10), BossState.Kind.WORLD_1)
-	check_eq(LevelLibrary.boss_kind_for_slot(20), BossState.Kind.WORLD_2)
-	check_eq(LevelLibrary.boss_kind_for_slot(30), BossState.Kind.WORLD_3)
-	check_eq(LevelLibrary.boss_kind_for_slot(40), BossState.Kind.WORLD_4)
-	check_eq(LevelLibrary.boss_kind_for_slot(50), BossState.Kind.NONE, "world 5 has no boss yet")
+	check_eq(LevelLibrary.boss_kind_for_slot(10), BossState.Kind.STEEL_CHASE, "first world ends in a steel chase")
+	check_eq(LevelLibrary.boss_kind_for_slot(20), BossState.Kind.WORLD_1)
+	check_eq(LevelLibrary.boss_kind_for_slot(30), BossState.Kind.WORLD_2)
+	check_eq(LevelLibrary.boss_kind_for_slot(40), BossState.Kind.WORLD_3)
+	check_eq(LevelLibrary.boss_kind_for_slot(50), BossState.Kind.WORLD_4)
 	check_eq(LevelLibrary.boss_kind_for_slot(9), BossState.Kind.NONE)
-	check(LevelLibrary.is_placeholder(50))
-	check(LevelLibrary.is_placeholder(23))
+	check(not LevelLibrary.is_placeholder(10))
+	check(not LevelLibrary.is_placeholder(20))
 	check(not LevelLibrary.is_placeholder(30))
+	check(not LevelLibrary.is_placeholder(40))
+	check(not LevelLibrary.is_placeholder(50))
 	check(not LevelLibrary.is_placeholder(1))
 
 

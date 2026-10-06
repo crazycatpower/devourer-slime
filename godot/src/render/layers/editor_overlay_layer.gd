@@ -42,6 +42,12 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	var hover_r: int = floori(mouse.y / Tile.SIZE)
 	var hx: float = float(hover_c) * Tile.SIZE
 	var hy: float = float(hover_r) * Tile.SIZE
+	if view.editor_erasing or editor.brush == LevelEditor.Brush.ERASER:
+		p.fill_rect(hx, hy, Tile.SIZE, Tile.SIZE, Color(Palette.RED_500, 0.25))
+		p.stroke_rect(hx, hy, Tile.SIZE, Tile.SIZE, Palette.RED_400, 2.0)
+		p.line(hx + 10.0, hy + 10.0, hx + 30.0, hy + 30.0, Palette.RED_400, 2.0)
+		p.line(hx + 30.0, hy + 10.0, hx + 10.0, hy + 30.0, Palette.RED_400, 2.0)
+		return
 
 	if editor.brush == LevelEditor.Brush.PASTE and editor.clipboard != null:
 		var clip: LevelGrid = editor.clipboard

@@ -6,18 +6,71 @@ var editor: LevelEditor
 
 func before_each() -> void:
 	editor = LevelEditor.new()
-	editor.open(LevelLibrary.built_in_level(23))  # The empty 40 x 15 room.
+	editor.open(LevelCodec.decode(LevelLibrary.default_rows()))  # The empty 40 x 15 room.
 
 
 func test_open_starts_clean() -> void:
 	check(not editor.is_dirty())
 	check(not editor.can_undo())
 	check(not editor.can_redo())
-	check(editor.level.equals(LevelLibrary.built_in_level(23)))
+	check(editor.level.equals(LevelCodec.decode(LevelLibrary.default_rows())))
+
+
+func test_undo_to_saved_state_is_clean_and_redo_is_dirty() -> void:
+	_paint(Vector2i(4, 4))
+	editor.mark_saved()
+	_paint(Vector2i(5, 4))
+	check(editor.is_dirty())
+	editor.undo()
+	check(not editor.is_dirty(), "undo to the saved document is clean")
+	editor.redo()
+	check(editor.is_dirty())
+
+
+func test_erase_drag_keeps_brush_and_undo_restores_whole_drag() -> void:
+	editor.set_brush(LevelEditor.Brush.STEEL)
+	editor.begin_stroke()
+	editor.stroke_to(Vector2i(4, 4), false)
+	editor.stroke_to(Vector2i(8, 4), false)
+	editor.end_stroke()
+	var before: LevelData = editor.level.duplicate_level()
+	editor.begin_stroke()
+	editor.stroke_to(Vector2i(4, 4), true)
+	editor.stroke_to(Vector2i(8, 4), true)
+	editor.end_stroke()
+	for col: int in range(4, 9):
+		check_eq(editor.level.grid.get_cell(4, col), Tile.AIR)
+	check_eq(editor.brush, LevelEditor.Brush.STEEL)
+	editor.undo()
+	check(editor.level.equals(before), "one undo restores all erased cells")
+
+
+func test_pick_material_and_spike_direction_does_not_edit_level() -> void:
+	editor.level.grid.set_cell(4, 4, Tile.SPIKE_LEFT)
+	editor.mark_saved()
+	editor.pick_brush(Vector2i(4, 4))
+	check_eq(editor.brush, LevelEditor.Brush.SPIKES)
+	check_eq(editor.spike_direction, LevelEditor.SpikeDirection.LEFT)
+	check(not editor.is_dirty() and not editor.can_undo())
+	editor.pick_brush(editor.level.start_cell)
+	check_eq(editor.brush, LevelEditor.Brush.PLAYER)
+	editor.pick_brush(Vector2i(5, 5))
+	check_eq(editor.brush, LevelEditor.Brush.ERASER)
+
+
+func test_save_during_stroke_preserves_undo() -> void:
+	editor.begin_stroke()
+	editor.stroke_to(Vector2i(4, 4), false)
+	editor.mark_saved()
+	check(not editor.is_dirty())
+	check(editor.can_undo())
+	editor.undo()
+	check_eq(editor.level.grid.get_cell(4, 4), Tile.AIR)
+	check(editor.is_dirty())
 
 
 func test_open_works_on_a_copy() -> void:
-	var source: LevelData = LevelLibrary.built_in_level(23)
+	var source: LevelData = LevelCodec.decode(LevelLibrary.default_rows())
 	editor.open(source)
 	_paint(Vector2i(5, 5))
 	check_eq(source.grid.get_cell(5, 5), Tile.AIR, "the caller's level is untouched")

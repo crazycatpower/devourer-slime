@@ -13,6 +13,8 @@ const REST_TICKS: int = 120
 const CHARGE_TICKS: int = 180
 const LEAP_SPEED: float = 18.0
 const BOUNCE_RESTITUTION: float = 1.05
+const MAX_HORIZONTAL_SPEED: float = 18.0
+const MAX_VERTICAL_SPEED: float = 28.0
 const SPARK_COLOR: Color = Palette.FUCHSIA_400
 const BODY_COLOR: Color = Palette.PINK_600
 
@@ -65,6 +67,8 @@ static func update(sim: GameSim) -> void:
 		BossState.State.JUMPING:
 			_update_leaping(sim)
 
+	boss.vx = clampf(boss.vx, -MAX_HORIZONTAL_SPEED, MAX_HORIZONTAL_SPEED)
+	boss.vy = clampf(boss.vy, -MAX_VERTICAL_SPEED, MAX_VERTICAL_SPEED)
 	if boss.y > sim.level.pixel_height():
 		_on_fell_out_of_map(sim)
 
@@ -77,11 +81,7 @@ static func _update_intro(sim: GameSim) -> void:
 	if boss.intro_timer % 2 == 0:
 		BossSystem.spawn_converging_spark(sim, 100.0, 20.0, SPARK_COLOR, 3.0, 3.0)
 	if boss.intro_timer <= 0:
-		boss.state = BossState.State.FALLING
-		boss.vy = 2.0
-		sim.camera.shake = 18.0
-		sim.play(Sfx.Id.BOUNCE)
-		sim.spawn_particles(boss.center_x(), boss.center_y(), BODY_COLOR, 30, 6.0)
+		BossSystem.finish_intro(sim, 18.0, BODY_COLOR, 30, 6.0)
 
 
 static func _update_falling(sim: GameSim) -> void:
@@ -136,18 +136,13 @@ static func _update_leaping(sim: GameSim) -> void:
 	boss.x += boss.vx
 
 	# Blocks in the way are damaged and the boss rebounds off them.
-	var col_start: int = maxi(0, floori(boss.x / Tile.SIZE))
-	var col_end: int = mini(level.cols - 1, floori((boss.x + boss.w - 1.0) / Tile.SIZE))
 	var row_start: int = maxi(0, floori(boss.y / Tile.SIZE))
 	var row_end: int = mini(level.rows - 1, floori((boss.y + boss.h - 1.0) / Tile.SIZE))
-	var target_col: int = -1
+	var target_col: int = wall_contact_column(level, boss.x, boss.y, boss.w, boss.h, boss.vx)
 	var hit_rows: PackedInt32Array = PackedInt32Array()
 	for r: int in range(row_start, row_end + 1):
-		for c: int in range(col_start, col_end + 1):
-			if Tile.is_solid(level.get_cell(r, c)):
-				target_col = c
-				if not hit_rows.has(r):
-					hit_rows.append(r)
+		if target_col >= 0 and Tile.is_solid(level.get_cell(r, target_col)):
+			hit_rows.append(r)
 
 	if target_col >= 0:
 		if boss.vx > 0.0:
@@ -249,3 +244,19 @@ static func _on_fell_out_of_map(sim: GameSim) -> void:
 	BossSystem.place_trophy(
 		level, BossSystem.trophy_cell(level, TROPHY_ROW, TROPHY_COL), Tile.BOUNCY, 3
 	)
+
+
+## Nearest occupied column in the movement direction, shared by the preview.
+static func wall_contact_column(level: LevelGrid, x: float, y: float, w: float, h: float, vx: float) -> int:
+	if vx == 0.0:
+		return -1
+	var first: int = maxi(0, floori(x / Tile.SIZE))
+	var last: int = mini(level.cols - 1, floori((x + w - 1.0) / Tile.SIZE))
+	var top: int = maxi(0, floori(y / Tile.SIZE))
+	var bottom: int = mini(level.rows - 1, floori((y + h - 1.0) / Tile.SIZE))
+	var columns: Array = range(first, last + 1) if vx > 0.0 else range(last, first - 1, -1)
+	for c: int in columns:
+		for r: int in range(top, bottom + 1):
+			if Tile.is_solid(level.get_cell(r, c)):
+				return c
+	return -1

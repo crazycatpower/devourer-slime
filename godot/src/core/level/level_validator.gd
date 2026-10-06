@@ -21,7 +21,7 @@ static func problem_with(rows: PackedStringArray) -> String:
 	for r: int in row_count:
 		var line: String = rows[r]
 		# Shorter rows are tolerated (the missing cells are air), because the
-		# web version could export them; longer rows would lose tiles.
+		# saved files may contain them; longer rows would lose tiles.
 		if line.length() > col_count:
 			return "第 %d 列比第一列長（%d > %d）。" % [r + 1, line.length(), col_count]
 		for c: int in line.length():

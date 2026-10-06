@@ -12,10 +12,10 @@ const FONT_PATH: String = "res://assets/fonts/NotoSansTC-VariableFont_wght.ttf"
 
 const TEXT: Color = Color("f1f5f9")
 const TEXT_MUTED: Color = Palette.SLATE_400
-const SURFACE: Color = Color("0d1226")
-const SURFACE_RAISED: Color = Palette.SLATE_800
-const SURFACE_SUNKEN: Color = Palette.SLATE_950
-const OUTLINE: Color = Palette.SLATE_700
+const SURFACE: Color = Color("0b2029", 0.94)
+const SURFACE_RAISED: Color = Color("163440")
+const SURFACE_SUNKEN: Color = Color("07151e", 0.94)
+const OUTLINE: Color = Color("34545d")
 const ACCENT: Color = Palette.EMERALD_500
 const ACCENT_DARK: Color = Palette.EMERALD_600
 const DANGER: Color = Palette.RED_600
@@ -63,18 +63,21 @@ func _weight(base: FontFile, weight: int) -> FontVariation:
 
 
 func _box(
-	fill: Color, border: Color = Color.TRANSPARENT, border_width: int = 0, radius: int = 14,
+	fill: Color, border: Color = Color.TRANSPARENT, border_width: int = 0, radius: int = 3,
 	pad_x: int = 24, pad_y: int = 12
 ) -> StyleBoxFlat:
 	var box: StyleBoxFlat = StyleBoxFlat.new()
 	box.bg_color = fill
 	box.border_color = border
 	box.set_border_width_all(border_width)
-	box.set_corner_radius_all(radius)
+	box.set_corner_radius_all(mini(radius, 4))
 	box.content_margin_left = pad_x
 	box.content_margin_right = pad_x
 	box.content_margin_top = pad_y
 	box.content_margin_bottom = pad_y
+	box.shadow_color = Color(0.0, 0.01, 0.02, 0.32)
+	box.shadow_size = 8
+	box.shadow_offset = Vector2(0.0, 4.0)
 	box.anti_aliasing = true
 	return box
 
@@ -139,7 +142,7 @@ func _build_buttons(bold: Font) -> void:
 
 
 func _button_style(
-	type: StringName, fill: Color, border: Color, font_color: Color, radius: int = 14,
+	type: StringName, fill: Color, border: Color, font_color: Color, radius: int = 3,
 	pad_x: int = 24, pad_y: int = 12
 ) -> void:
 	_theme.set_stylebox(&"normal", type, _box(fill, border, 2, radius, pad_x, pad_y))

@@ -56,6 +56,12 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Palette.APP_BACKGROUND)
+	# Match the game's quiet factory panels instead of a separate cave painting.
+	for row: int in ceili(size.y / 88.0):
+		for col: int in ceili(size.x / 88.0):
+			var panel: Rect2 = Rect2(float(col) * 88.0 + 1.0, float(row) * 88.0 + 1.0, 86.0, 86.0)
+			draw_rect(panel, Color("#101b24"))
+			draw_line(panel.position, panel.position + Vector2(panel.size.x, 0.0), Color("#192732"), 1.0)
 	var phase: float = _time / DRIFT_PERIOD_SEC * TAU
 	var reach: Vector2 = size * DRIFT_REACH
 	_glow(Vector2(size.x * 0.25, size.y * 0.05) + Vector2(cos(phase), sin(phase)) * reach)

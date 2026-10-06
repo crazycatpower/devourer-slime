@@ -77,6 +77,18 @@ func test_every_sound_effect_renders() -> void:
 		check_eq(absi(stream.data.decode_s16(stream.data.size() - 2)), 0, "sound %d ends at zero" % id)
 
 
+func test_every_reaction_cue_renders_short_and_clean() -> void:
+	for cue: int in SfxLibrary.Cue.values():
+		var stream: AudioStreamWAV = SfxLibrary.build_cue(cue as SfxLibrary.Cue)
+		check(stream != null, "cue %d renders" % cue)
+		if stream == null:
+			continue
+		check(stream.get_length() > 0.05 and stream.get_length() < 0.3, "cue %d is a short accent" % cue)
+		check(_peak(stream) > 100, "cue %d is not silent" % cue)
+		check(_peak(stream) < 32767, "cue %d does not clip" % cue)
+		check_eq(absi(stream.data.decode_s16(stream.data.size() - 2)), 0, "cue %d ends at zero" % cue)
+
+
 func test_loop_is_seamless() -> void:
 	for wave: int in ToneSynth.Wave.values():
 		var stream: AudioStreamWAV = ToneSynth.render_loop(wave as ToneSynth.Wave, 100.0, 4)

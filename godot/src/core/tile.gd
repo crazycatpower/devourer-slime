@@ -2,8 +2,7 @@ class_name Tile
 extends RefCounted
 ## Tile identifiers and their gameplay classification.
 ##
-## The numeric values are the ids used by the web version's save format and
-## engine (`src/game/physicsUtils.ts`). They must never be renumbered.
+## Numeric IDs are persisted in save data and must never be renumbered.
 
 const SIZE: float = GameConstants.TILE_SIZE
 

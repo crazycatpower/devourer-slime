@@ -1,0 +1,1028 @@
+[
+  {
+    "id": "world1-culture-01",
+    "theme": "world1-culture",
+    "description": "empty small culture jar",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      139,
+      87,
+      203,
+      319
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-01.tres"
+  },
+  {
+    "id": "world1-culture-02",
+    "theme": "world1-culture",
+    "description": "stoppered sample bottle cluster",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      506,
+      108,
+      246,
+      298
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-02.tres"
+  },
+  {
+    "id": "world1-culture-03",
+    "theme": "world1-culture",
+    "description": "wall nutrient pressure gauge",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      906,
+      98,
+      270,
+      320
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-03.tres"
+  },
+  {
+    "id": "world1-culture-04",
+    "theme": "world1-culture",
+    "description": "rolled specimen pouch",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      53,
+      548,
+      357,
+      243
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-04.tres"
+  },
+  {
+    "id": "world1-culture-05",
+    "theme": "world1-culture",
+    "description": "detached glass vessel cap",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      492,
+      547,
+      270,
+      187
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-05.tres"
+  },
+  {
+    "id": "world1-culture-06",
+    "theme": "world1-culture",
+    "description": "small empty specimen rack",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      881,
+      539,
+      325,
+      217
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-06.tres"
+  },
+  {
+    "id": "world1-culture-07",
+    "theme": "world1-culture",
+    "description": "ceramic nutrient tap",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      59,
+      855,
+      314,
+      275
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-07.tres"
+  },
+  {
+    "id": "world1-culture-08",
+    "theme": "world1-culture",
+    "description": "bundled thin feeding tubes",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      477,
+      849,
+      292,
+      324
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-08.tres"
+  },
+  {
+    "id": "world1-culture-09",
+    "theme": "world1-culture",
+    "description": "faded blank specimen tag plate",
+    "sheet": "world1-culture-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      865,
+      908,
+      343,
+      261
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world1-culture-09.tres"
+  },
+  {
+    "id": "world2-materials-01",
+    "theme": "world2-materials",
+    "description": "small rubber hose coil",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      53,
+      121,
+      345,
+      243
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-01.tres"
+  },
+  {
+    "id": "world2-materials-02",
+    "theme": "world2-materials",
+    "description": "analog strain gauge",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      520,
+      66,
+      218,
+      316
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-02.tres"
+  },
+  {
+    "id": "world2-materials-03",
+    "theme": "world2-materials",
+    "description": "polymer sample spool",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      919,
+      89,
+      246,
+      277
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-03.tres"
+  },
+  {
+    "id": "world2-materials-04",
+    "theme": "world2-materials",
+    "description": "worn padded instrument case",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      48,
+      506,
+      365,
+      268
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-04.tres"
+  },
+  {
+    "id": "world2-materials-05",
+    "theme": "world2-materials",
+    "description": "wall caliper holder",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      499,
+      464,
+      270,
+      325
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-05.tres"
+  },
+  {
+    "id": "world2-materials-06",
+    "theme": "world2-materials",
+    "description": "three capped reagent ampoules",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      887,
+      509,
+      318,
+      254
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-06.tres"
+  },
+  {
+    "id": "world2-materials-07",
+    "theme": "world2-materials",
+    "description": "detached pressure bellows",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      48,
+      901,
+      354,
+      245
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-07.tres"
+  },
+  {
+    "id": "world2-materials-08",
+    "theme": "world2-materials",
+    "description": "crumpled rubber glove",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      446,
+      900,
+      375,
+      267
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-08.tres"
+  },
+  {
+    "id": "world2-materials-09",
+    "theme": "world2-materials",
+    "description": "blank cracked calibration plaque",
+    "sheet": "world2-materials-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      914,
+      901,
+      283,
+      261
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world2-materials-09.tres"
+  },
+  {
+    "id": "world3-recycling-01",
+    "theme": "world3-recycling",
+    "description": "short corroded elbow pipe",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      96,
+      137,
+      290,
+      264
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-01.tres"
+  },
+  {
+    "id": "world3-recycling-02",
+    "theme": "world3-recycling",
+    "description": "small filter cartridge",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      545,
+      122,
+      167,
+      278
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-02.tres"
+  },
+  {
+    "id": "world3-recycling-03",
+    "theme": "world3-recycling",
+    "description": "dented empty oil can",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      912,
+      118,
+      228,
+      288
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-03.tres"
+  },
+  {
+    "id": "world3-recycling-04",
+    "theme": "world3-recycling",
+    "description": "wall maintenance gauge",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      96,
+      479,
+      271,
+      299
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-04.tres"
+  },
+  {
+    "id": "world3-recycling-05",
+    "theme": "world3-recycling",
+    "description": "tied cable scrap bundle",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      448,
+      506,
+      360,
+      283
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-05.tres"
+  },
+  {
+    "id": "world3-recycling-06",
+    "theme": "world3-recycling",
+    "description": "detached ventilation grille",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      885,
+      515,
+      290,
+      250
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-06.tres"
+  },
+  {
+    "id": "world3-recycling-07",
+    "theme": "world3-recycling",
+    "description": "folded dirty maintenance rag",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      74,
+      894,
+      332,
+      286
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-07.tres"
+  },
+  {
+    "id": "world3-recycling-08",
+    "theme": "world3-recycling",
+    "description": "small crushed metal bottle",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      545,
+      856,
+      174,
+      302
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-08.tres"
+  },
+  {
+    "id": "world3-recycling-09",
+    "theme": "world3-recycling",
+    "description": "disconnected motor casing",
+    "sheet": "world3-recycling-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      866,
+      879,
+      314,
+      278
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world3-recycling-09.tres"
+  },
+  {
+    "id": "world4-energy-01",
+    "theme": "world4-energy",
+    "description": "small ceramic insulator",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      127,
+      77,
+      204,
+      302
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-01.tres"
+  },
+  {
+    "id": "world4-energy-02",
+    "theme": "world4-energy",
+    "description": "disconnected capacitor canister",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      495,
+      80,
+      265,
+      302
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-02.tres"
+  },
+  {
+    "id": "world4-energy-03",
+    "theme": "world4-energy",
+    "description": "coiled insulated cable",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      855,
+      123,
+      349,
+      250
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-03.tres"
+  },
+  {
+    "id": "world4-energy-04",
+    "theme": "world4-energy",
+    "description": "wall voltage meter",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      96,
+      480,
+      257,
+      316
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-04.tres"
+  },
+  {
+    "id": "world4-energy-05",
+    "theme": "world4-energy",
+    "description": "cracked cooling valve",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      464,
+      476,
+      340,
+      305
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-05.tres"
+  },
+  {
+    "id": "world4-energy-06",
+    "theme": "world4-energy",
+    "description": "dim sealed power cell",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      939,
+      442,
+      222,
+      347
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-06.tres"
+  },
+  {
+    "id": "world4-energy-07",
+    "theme": "world4-energy",
+    "description": "detached connector cluster",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      74,
+      892,
+      331,
+      287
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-07.tres"
+  },
+  {
+    "id": "world4-energy-08",
+    "theme": "world4-energy",
+    "description": "small coolant flask",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      519,
+      847,
+      223,
+      330
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-08.tres"
+  },
+  {
+    "id": "world4-energy-09",
+    "theme": "world4-energy",
+    "description": "blank fuse cover plate",
+    "sheet": "world4-energy-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      913,
+      882,
+      282,
+      277
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world4-energy-09.tres"
+  },
+  {
+    "id": "world5-quarantine-01",
+    "theme": "world5-quarantine",
+    "description": "broken inspection camera",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      67,
+      81,
+      336,
+      364
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-01.tres"
+  },
+  {
+    "id": "world5-quarantine-02",
+    "theme": "world5-quarantine",
+    "description": "wall intercom housing",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      529,
+      80,
+      224,
+      310
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-02.tres"
+  },
+  {
+    "id": "world5-quarantine-03",
+    "theme": "world5-quarantine",
+    "description": "empty decontamination spray bottle",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      936,
+      66,
+      188,
+      340
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-03.tres"
+  },
+  {
+    "id": "world5-quarantine-04",
+    "theme": "world5-quarantine",
+    "description": "folded containment cloth",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      55,
+      538,
+      363,
+      259
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-04.tres"
+  },
+  {
+    "id": "world5-quarantine-05",
+    "theme": "world5-quarantine",
+    "description": "detached door actuator",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      476,
+      534,
+      345,
+      293
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-05.tres"
+  },
+  {
+    "id": "world5-quarantine-06",
+    "theme": "world5-quarantine",
+    "description": "cracked status indicator panel",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      880,
+      520,
+      320,
+      244
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-06.tres"
+  },
+  {
+    "id": "world5-quarantine-07",
+    "theme": "world5-quarantine",
+    "description": "wall access sensor",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      143,
+      876,
+      201,
+      304
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-07.tres"
+  },
+  {
+    "id": "world5-quarantine-08",
+    "theme": "world5-quarantine",
+    "description": "small sealant cartridge",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      586,
+      841,
+      128,
+      342
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-08.tres"
+  },
+  {
+    "id": "world5-quarantine-09",
+    "theme": "world5-quarantine",
+    "description": "blank faded quarantine placard",
+    "sheet": "world5-quarantine-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      880,
+      919,
+      311,
+      232
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/world5-quarantine-09.tres"
+  },
+  {
+    "id": "common-maintenance-01",
+    "theme": "common-maintenance",
+    "description": "rusted small pipe elbow",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      78,
+      107,
+      309,
+      279
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-01.tres"
+  },
+  {
+    "id": "common-maintenance-02",
+    "theme": "common-maintenance",
+    "description": "analog wall gauge",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      513,
+      64,
+      242,
+      324
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-02.tres"
+  },
+  {
+    "id": "common-maintenance-03",
+    "theme": "common-maintenance",
+    "description": "bundled hanging wires",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      922,
+      44,
+      264,
+      365
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-03.tres"
+  },
+  {
+    "id": "common-maintenance-04",
+    "theme": "common-maintenance",
+    "description": "small vent cover",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      85,
+      483,
+      276,
+      282
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-04.tres"
+  },
+  {
+    "id": "common-maintenance-05",
+    "theme": "common-maintenance",
+    "description": "dented maintenance tin",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      508,
+      472,
+      247,
+      310
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-05.tres"
+  },
+  {
+    "id": "common-maintenance-06",
+    "theme": "common-maintenance",
+    "description": "capped glass bottle",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      949,
+      464,
+      177,
+      314
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-06.tres"
+  },
+  {
+    "id": "common-maintenance-07",
+    "theme": "common-maintenance",
+    "description": "detached valve wheel",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      70,
+      859,
+      302,
+      307
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-07.tres"
+  },
+  {
+    "id": "common-maintenance-08",
+    "theme": "common-maintenance",
+    "description": "blank worn wall plate",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      470,
+      894,
+      315,
+      238
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-08.tres"
+  },
+  {
+    "id": "common-maintenance-09",
+    "theme": "common-maintenance",
+    "description": "short flexible hose coil",
+    "sheet": "common-maintenance-props.png",
+    "dimensions": [
+      1254,
+      1254
+    ],
+    "region": [
+      870,
+      933,
+      318,
+      227
+    ],
+    "transparent_background": true,
+    "region_alpha_threshold": 16,
+    "resource": "props/common-maintenance-09.tres"
+  }
+]

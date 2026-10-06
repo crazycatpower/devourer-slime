@@ -3,8 +3,7 @@ extends RefCounted
 ## Stores the player's custom levels, one JSON file per slot.
 ##
 ## A slot plays its custom level when one is saved and the built-in layout
-## otherwise. Files hold the same array-of-strings JSON the web version kept in
-## localStorage, so levels can be copied between the two.
+## otherwise. Files hold array-of-strings JSON for the level editor.
 
 ## Result of [method import_text].
 class ImportResult:
@@ -15,9 +14,8 @@ class ImportResult:
 	var slots: PackedInt32Array = PackedInt32Array()
 
 
-## Key prefix the web version used for its localStorage entries; multi-level
-## exports are keyed with it.
-const WEB_KEY_PREFIX: String = "slime_maker_level_"
+## Stable key prefix for multi-level export files.
+const EXPORT_KEY_PREFIX: String = "slime_maker_level_"
 
 var _dir: String
 
@@ -90,14 +88,14 @@ func export_slot(slot: int) -> String:
 	return JSON.stringify(Array(rows))
 
 
-## JSON text of every custom level, keyed like the web version's storage.
+## JSON text of every custom level, keyed by the stable export prefix.
 ## Returns an empty string when nothing is saved.
 func export_all() -> String:
 	var all: Dictionary = {}
 	for slot: int in custom_slots():
 		var rows: PackedStringArray = custom_rows(slot)
 		if not rows.is_empty():
-			all[WEB_KEY_PREFIX + str(slot)] = Array(rows)
+			all[EXPORT_KEY_PREFIX + str(slot)] = Array(rows)
 	if all.is_empty():
 		return ""
 	return JSON.stringify(all, "  ")
@@ -130,9 +128,9 @@ func import_text(text: String, current_slot: int) -> ImportResult:
 		var pack: Dictionary = parsed
 		for key: Variant in pack:
 			var key_text: String = str(key)
-			if not key_text.begins_with(WEB_KEY_PREFIX):
+			if not key_text.begins_with(EXPORT_KEY_PREFIX):
 				continue
-			var slot_text: String = key_text.trim_prefix(WEB_KEY_PREFIX)
+			var slot_text: String = key_text.trim_prefix(EXPORT_KEY_PREFIX)
 			var slot: int = slot_text.to_int()
 			if not slot_text.is_valid_int() or slot < 1 or slot > GameConstants.SLOT_COUNT:
 				result.message = "關卡包含無效的欄位編號「%s」。" % slot_text
@@ -143,7 +141,7 @@ func import_text(text: String, current_slot: int) -> ImportResult:
 				return result
 			pending[slot] = rows
 		if pending.is_empty():
-			result.message = "格式不符！找不到任何 %s 鍵值。" % WEB_KEY_PREFIX
+			result.message = "格式不符！找不到任何 %s 鍵值。" % EXPORT_KEY_PREFIX
 			return result
 	else:
 		result.message = "未知的 JSON 格式，無法解析。"
@@ -183,8 +181,4 @@ func _write_rows(slot: int, rows: PackedStringArray) -> Error:
 		return FileAccess.get_open_error()
 	file.store_string(JSON.stringify(Array(rows)))
 	file.close()
-	if FileAccess.file_exists(path):
-		error = DirAccess.remove_absolute(path)
-		if error != OK:
-			return error
 	return DirAccess.rename_absolute(temp_path, path)

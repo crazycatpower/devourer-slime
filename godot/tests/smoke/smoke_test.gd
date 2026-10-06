@@ -22,7 +22,11 @@ func _initialize() -> void:
 
 
 func _start() -> void:
-	var script: GDScript = load("res://tests/smoke/smoke_driver.gd") as GDScript
+	var driver_path: String = "res://tests/smoke/smoke_driver.gd"
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--driver="):
+			driver_path = argument.trim_prefix("--driver=")
+	var script: GDScript = load(driver_path) as GDScript
 	if script == null or not script.can_instantiate():
 		print("smoke_test: the driver script failed to compile")
 		quit(1)

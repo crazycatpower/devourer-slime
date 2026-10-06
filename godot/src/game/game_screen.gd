@@ -39,6 +39,7 @@ var _time_scale: float = 1.0
 var _ticks_per_frame: float = 1.0
 var _bullet_time: BulletTimeGauge = BulletTimeGauge.new()
 var _win_recorded: bool = false
+var _completion_sent: bool = false
 
 @onready var _view: WorldView = %WorldView
 @onready var _overlay: GameOverlay = %GameOverlay
@@ -57,10 +58,17 @@ func setup(slot: int, mode: Mode, level: LevelData = null) -> void:
 
 
 func _ready() -> void:
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	if focus != null:
+		focus.release_focus()
+	# Gameplay has no text entry; do not inherit the editor's native IME mode.
+	if DisplayServer.has_feature(DisplayServer.FEATURE_IME):
+		DisplayServer.window_set_ime_active(false, get_window().get_window_id())
 	if _level == null:
 		_level = LevelStore.get_level(_slot)
 	_sim.sfx_requested.connect(AudioDirector.play_sfx)
 	_sim.level_reset.connect(_bullet_time.refill)
+	_sim.level_reset.connect(_input.release_all)
 	_sim.bullet_time_enabled = Settings.bullet_time_enabled
 	_sim.load_level(_slot, _level, LevelLibrary.boss_kind_for_slot(_slot))
 
@@ -70,17 +78,15 @@ func _ready() -> void:
 	_backdrop.glow_color = WorldCatalog.fill(GameConstants.world_of_slot(_slot))
 
 	var world: int = GameConstants.world_of_slot(_slot)
-	_level_label.text = "WORLD %d · LEVEL %02d" % [world, GameConstants.level_in_world(_slot)]
+	_level_label.text = "WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), GameConstants.level_in_world(_slot)]
 	if _mode == Mode.TEST:
 		_level_label.text += "　測試中"
 	_level_label.add_theme_color_override(&"font_color", WorldCatalog.accent(world))
 	var subtitle: String = ""
 	if _mode == Mode.TEST:
 		subtitle = "測試遊玩"
-	elif _sim.boss_kind != BossState.Kind.NONE:
-		subtitle = "首領挑戰"
 	_overlay.show_title_card(
-		"WORLD %d · LEVEL %02d" % [world, GameConstants.level_in_world(_slot)], subtitle,
+		"WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), GameConstants.level_in_world(_slot)], subtitle,
 		WorldCatalog.accent(world)
 	)
 
@@ -120,7 +126,7 @@ func _physics_process(delta: float) -> void:
 	_sim.update_camera()
 	var shake: float = _sim.camera.shake
 	_view.shake_offset = Vector2(randf() - 0.5, randf() - 0.5) * shake
-	_spawn_eating_crumbs()
+
 
 	if _sim.player.won and not _win_recorded:
 		_win_recorded = true
@@ -137,6 +143,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	_overlay.exit_in_progress = _sim.player.won and not _view.exit_vortex.finished()
+	if _sim.player.won and _view.exit_vortex.finished() and _mode == Mode.OFFICIAL and not _completion_sent:
+		_completion_sent = true
+		completed.emit(_slot)
+		return
 	var fraction: float = Engine.get_physics_interpolation_fraction()
 	_view.tick_alpha = clampf(_accumulator + _ticks_per_frame * fraction, 0.0, 1.0)
 	_view.camera_alpha = fraction
@@ -168,6 +179,7 @@ func _handle_game_event(event: InputEvent) -> bool:
 	if _sim.player.won and (
 		event.is_action_pressed(InputBindings.JUMP) or event.is_action_pressed(&"ui_accept")
 	):
+		_completion_sent = true
 		completed.emit(_slot)
 		return true
 	if event.is_action_pressed(InputBindings.RESTART):
@@ -178,6 +190,8 @@ func _handle_game_event(event: InputEvent) -> bool:
 
 func _restart() -> void:
 	_sim.reset()
+	_view.exit_vortex.reset()
+	_completion_sent = false
 	_accumulator = 0.0
 	_time_scale = 1.0
 	toast_requested.emit("關卡已重新開始")
@@ -234,9 +248,9 @@ func _refresh_hints() -> void:
 	var restart_key: String = InputBindings.describe(Settings.binding(InputBindings.RESTART))
 	var next_step: String = "返回編輯器"
 	if _mode == Mode.OFFICIAL:
-		next_step = "前往下一關" if _slot < GameConstants.SLOT_COUNT else "返回選單"
+		next_step = "前往下一關" if WorldCatalog.next_slot(_slot) != 0 else "返回選單"
 	_overlay.win_lines = PackedStringArray([
-		"按 [%s] 或 [Enter] %s" % [jump_key, next_step],
+		"旋渦將帶你%s（[%s] / Enter 可略過）" % [next_step, jump_key] if _mode == Mode.OFFICIAL else "按 [%s] 或 [Enter] %s" % [jump_key, next_step],
 		"按 [%s] 重玩這一關" % restart_key,
 	])
 	_overlay.retry_line = "按 [%s] 立即重試" % restart_key

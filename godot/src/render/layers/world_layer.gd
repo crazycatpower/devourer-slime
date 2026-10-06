@@ -6,6 +6,10 @@ extends Node2D
 var view: WorldView
 
 
+func request_redraw() -> void:
+	queue_redraw()
+
+
 func _draw() -> void:
 	if view == null or view.sim == null:
 		return

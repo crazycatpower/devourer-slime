@@ -15,6 +15,9 @@ static func update(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	if not boss.active or boss.dead:
 		return
+	if sim.boss_kind == BossState.Kind.STEEL_CHASE:
+		BossSteelChase.update(sim)
+		return
 	match sim.boss_kind:
 		BossState.Kind.WORLD_1:
 			BossWorld1.update(sim)
@@ -24,7 +27,29 @@ static func update(sim: GameSim) -> void:
 			BossWorld3.update(sim)
 		BossState.Kind.WORLD_4:
 			BossWorld4.update(sim)
+	_recover_lost_boss(sim)
 	BossCollision.resolve(sim)
+
+
+## Preserve the fight if an expanding or destructive boss leaves the arena.
+## World 2 has its own fall-out damage mechanic; World 3 flies.
+static func _recover_lost_boss(sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	if not boss.active or boss.dead or boss.y <= sim.level.pixel_height():
+		return
+	if sim.boss_kind != BossState.Kind.WORLD_1 and sim.boss_kind != BossState.Kind.WORLD_4:
+		return
+	boss.x = spawn_x(sim.level, boss.w)
+	boss.y = BossState.SPAWN_Y
+	boss.prev_x = boss.x
+	boss.prev_y = boss.y
+	boss.vx = 0.0
+	boss.vy = 0.0
+	boss.grounded = false
+	boss.state = BossState.State.INTRO
+	boss.intro_timer = RETRY_INTRO_TICKS
+	boss.intro_freezes_player = false
+	boss.combo_count = 0
 
 
 ## Horizontal offset from the boss centre to the player centre.
@@ -104,6 +129,17 @@ static func settle_on_floor(sim: GameSim, gravity: float) -> void:
 		boss.grounded = true
 	else:
 		boss.grounded = false
+
+
+## Ends a falling-in intro: the boss drops, the screen shakes and a burst of
+## particles marks the landing to come.
+static func finish_intro(sim: GameSim, shake: float, color: Color, count: int, speed: float) -> void:
+	var boss: BossState = sim.boss
+	boss.state = BossState.State.FALLING
+	boss.vy = 2.0
+	sim.camera.shake = shake
+	sim.play(Sfx.Id.BOUNCE)
+	sim.spawn_particles(boss.center_x(), boss.center_y(), color, count, speed)
 
 
 ## Spark that flies toward the boss centre from a random point around it.

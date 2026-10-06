@@ -71,6 +71,7 @@ static func default_event(action: StringName) -> InputEvent:
 static func make_key(physical_keycode: Key) -> InputEventKey:
 	var event: InputEventKey = InputEventKey.new()
 	event.physical_keycode = physical_keycode
+	event.keycode = physical_keycode
 	return event
 
 
@@ -173,10 +174,55 @@ static func describe(event: InputEvent) -> String:
 	return "?"
 
 
-## Makes [param action] respond to [param event] and nothing else.
+## Short human-readable display of all active controls for this action.
+static func describe_full(action: StringName, event: InputEvent) -> String:
+	match action:
+		MOVE_UP:
+			return "W  /  ↑" if same_binding(event, default_event(MOVE_UP)) else "%s  (W/↑)" % describe(event)
+		MOVE_DOWN:
+			return "S  /  ↓" if same_binding(event, default_event(MOVE_DOWN)) else "%s  (S/↓)" % describe(event)
+		MOVE_LEFT:
+			return "A  /  ←" if same_binding(event, default_event(MOVE_LEFT)) else "%s  (A/←)" % describe(event)
+		MOVE_RIGHT:
+			return "D  /  →" if same_binding(event, default_event(MOVE_RIGHT)) else "%s  (D/→)" % describe(event)
+		JUMP:
+			return "空格  /  W  /  ↑" if same_binding(event, default_event(JUMP)) or (event is InputEventKey and (event as InputEventKey).physical_keycode == KEY_SPACE) else "%s  (空格/W/↑)" % describe(event)
+		_:
+			return describe(event)
+
+
+## Makes [param action] respond to [param event] and standard alternate keys (WASD, Arrows, Space).
 static func apply_to_input_map(action: StringName, event: InputEvent) -> void:
 	if not InputMap.has_action(action):
 		InputMap.add_action(action)
 	InputMap.action_erase_events(action)
 	if event != null:
 		InputMap.action_add_event(action, event)
+	# Default convenience keys must not survive an explicit remap (e.g. A/D
+	# swapped), or the same key can drive both directions at once.
+	if not same_binding(event, default_event(action)):
+		return
+	match action:
+		MOVE_LEFT:
+			_add_alt_key(action, event, KEY_A)
+			_add_alt_key(action, event, KEY_LEFT)
+		MOVE_RIGHT:
+			_add_alt_key(action, event, KEY_D)
+			_add_alt_key(action, event, KEY_RIGHT)
+		MOVE_UP:
+			_add_alt_key(action, event, KEY_W)
+			_add_alt_key(action, event, KEY_UP)
+		MOVE_DOWN:
+			_add_alt_key(action, event, KEY_S)
+			_add_alt_key(action, event, KEY_DOWN)
+		JUMP:
+			_add_alt_key(action, event, KEY_W)
+			_add_alt_key(action, event, KEY_UP)
+			_add_alt_key(action, event, KEY_SPACE)
+
+
+static func _add_alt_key(action: StringName, primary: InputEvent, key_code: Key) -> void:
+	if primary is InputEventKey and (primary as InputEventKey).physical_keycode == key_code:
+		return
+	var alt: InputEventKey = make_key(key_code)
+	InputMap.action_add_event(action, alt)

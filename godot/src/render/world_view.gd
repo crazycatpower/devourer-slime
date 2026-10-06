@@ -23,6 +23,8 @@ var eat_held: bool = false
 var bullet_time_energy: float = 1.0
 ## When set, the editor's grid and brush preview are drawn on top.
 var editor: LevelEditor
+var editor_zoom: float = 1.0
+var editor_erasing: bool = false
 
 ## Screen pixels per world unit.
 var world_scale: float = 1.0
@@ -30,6 +32,7 @@ var world_scale: float = 1.0
 var camera_position: Vector2 = Vector2.ZERO
 ## Wall-clock milliseconds, for animation that is purely cosmetic.
 var time_ms: float = 0.0
+var exit_vortex: GoalVortex = GoalVortex.new()
 
 var _world: Node2D
 var _layers: Array[WorldLayer] = []
@@ -47,6 +50,7 @@ func _ready() -> void:
 	_add_layer(AimLayer.new(), "Aim")
 	_add_layer(ProjectileLayer.new(), "Projectiles")
 	_add_layer(PlayerLayer.new(), "Player")
+	_add_layer(DevourEffectLayer.new(), "DevourEffects")
 	_add_layer(ParticleLayer.new(), "Particles")
 	_add_layer(FallingBlockLayer.new(), "FallingBlocks")
 	_add_layer(BossLayer.new(), "Boss")
@@ -54,11 +58,12 @@ func _ready() -> void:
 	_add_layer(EditorOverlayLayer.new(), "EditorOverlay")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if sim == null:
 		return
+	exit_vortex.advance(delta, sim)
 	time_ms = float(Time.get_ticks_msec())
-	world_scale = size.x / GameConstants.VIEW_WIDTH
+	world_scale = size.x / GameConstants.VIEW_WIDTH * (editor_zoom if editor != null else 1.0)
 	var camera: SimCamera = sim.camera
 	camera_position = Vector2(
 		lerpf(camera.prev_x, camera.x, camera_alpha), lerpf(camera.prev_y, camera.y, camera_alpha)
@@ -67,7 +72,7 @@ func _process(_delta: float) -> void:
 	_world.position = (shake_offset - camera_position) * world_scale
 	queue_redraw()
 	for layer: WorldLayer in _layers:
-		layer.queue_redraw()
+		layer.request_redraw()
 
 
 func _draw() -> void:
@@ -93,6 +98,8 @@ func tween_position(prev_x: float, prev_y: float, x: float, y: float) -> Vector2
 
 ## Visible part of the world, for culling.
 func visible_world_rect() -> Rect2:
+	if editor != null:
+		return Rect2(camera_position, size / maxf(world_scale, 0.001))
 	return Rect2(camera_position, Vector2(GameConstants.VIEW_WIDTH, GameConstants.VIEW_HEIGHT))
 
 

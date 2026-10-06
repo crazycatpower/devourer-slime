@@ -41,6 +41,9 @@ static func _resolve_trampoline(sim: GameSim) -> void:
 	var sub_bounce_color: Color = Palette.CYAN_400 if is_world_3 else Palette.PINK_400
 	var original_vx: float = player.vx
 	var original_vy: float = player.vy
+	# All contact directions launch the player, including side and underside.
+	player.grounded = false
+	player.recoil_vx = 0.0
 
 	if overlap_x < overlap_y:
 		var kick: float = maxf(absf(original_vx) * 1.5, 20.0)
@@ -97,7 +100,8 @@ static func _resolve_void_body(sim: GameSim) -> void:
 		for c: int in 3:
 			if r == 1 and c == 1:
 				continue
-			if boss.cell(r, c) != 0:
+			# Consumed cells are remains, not new lethal void during devouring.
+			if boss.cell(r, c) != 0 or boss.eating_progress > 0.0:
 				continue
 			var cell_x: float = boss.x + float(c) * Tile.SIZE
 			var cell_y: float = boss.y + float(r) * Tile.SIZE

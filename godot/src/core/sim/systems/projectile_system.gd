@@ -38,7 +38,7 @@ static func update(sim: GameSim) -> void:
 
 
 ## Moves [param p] through this tick's path. Returns true when it is spent.
-static func _sweep(sim: GameSim, p: SimProjectile) -> bool:
+static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> bool:
 	var level: LevelGrid = sim.level
 	p.vy += GameConstants.GRAVITY * GRAVITY_SCALE
 	var rx: float = p.x + p.w / 2.0
@@ -60,7 +60,20 @@ static func _sweep(sim: GameSim, p: SimProjectile) -> bool:
 			prev_r = r
 			continue
 
-		match _hits_boss(sim, p, cx, cy):
+		var boss_hit: BossHit = _hits_boss(sim, p, cx, cy, preview)
+		if preview:
+			# Stop at the first contact, including a bounce. Never mutate the
+			# world or predict a moving boss beyond its current pose.
+			var contact: bool = boss_hit != BossHit.NONE or not level.in_bounds(r, c)
+			if not contact:
+				var tile: int = level.get_cell(r, c)
+				contact = Tile.is_solid(tile) or Tile.is_spike(tile)
+			if contact:
+				p.x = cx - p.w / 2.0
+				p.y = cy - p.h / 2.0
+				return true
+			continue
+		match boss_hit:
 			BossHit.SPENT:
 				return true
 			BossHit.DEFLECTED:
@@ -159,7 +172,7 @@ static func _enemy_step(
 
 
 ## Lets a player projectile at ([param cx], [param cy]) interact with the boss.
-static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float) -> BossHit:
+static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float, preview: bool = false) -> BossHit:
 	var boss: BossState = sim.boss
 	if not boss.active or boss.dead or boss.state == BossState.State.SUSPENDED:
 		return BossHit.NONE
@@ -167,7 +180,7 @@ static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float) -> 
 	if sim.boss_kind == BossState.Kind.WORLD_3:
 		if boss.state == BossState.State.INTRO:
 			return BossHit.NONE
-		return BossHit.SPENT if BossWorld3.hit_by_projectile(sim, cx, cy) else BossHit.NONE
+		return BossHit.SPENT if BossWorld3.hit_by_projectile(sim, cx, cy, preview) else BossHit.NONE
 
 	var is_world_1: bool = sim.boss_kind == BossState.Kind.WORLD_1
 	var n: int = boss.grid_size
@@ -196,12 +209,16 @@ static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float) -> 
 				# Blocks only stick next to the body, never in mid-air.
 				if not boss.has_occupied_neighbor(br, bc):
 					continue
+				if preview:
+					return BossHit.SPENT
 				BossWorld4.feed_cell(sim, p, br, bc, cell_x, cell_y)
 				if is_world_1:
 					BossWorld1.update_bounds(sim)
 				return BossHit.SPENT
 			# An occupied cell is solid: the block is knocked away and stays
 			# in play, to land somewhere as a block again.
+			if preview:
+				return BossHit.DEFLECTED
 			_deflect(sim, p, cell_x, cell_y)
 			sim.add_shake(3.0)
 			sim.play(Sfx.Id.BOUNCE)
@@ -300,6 +317,28 @@ static func _worn_type(type: int) -> int:
 	if type == Tile.BOUNCY:
 		return Tile.BOUNCY_EATEN_2
 	return type
+
+
+## Predicts only the first contact, using the same spawn and sweep as firing.
+## Its private projectile is the only state modified by this query.
+static func preview_path(sim: GameSim, aim: PlayerSystem.Aim, ticks: int = 40) -> PackedVector2Array:
+	var origin: Vector2 = PlayerSystem.shot_origin(sim.player, sim.level, aim)
+	var p: SimProjectile = SimProjectile.new()
+	p.x = origin.x
+	p.y = origin.y
+	p.vx = aim.x * GameConstants.BULLET_SPEED
+	p.vy = aim.y * GameConstants.BULLET_SPEED
+	var half: Vector2 = Vector2(p.w, p.h) / 2.0
+	var points: PackedVector2Array = PackedVector2Array([origin + half])
+	for tick: int in ticks:
+		var hit: bool = _sweep(sim, p, true)
+		if not hit:
+			p.x += p.vx
+			p.y += p.vy
+		points.append(Vector2(p.x, p.y) + half)
+		if hit:
+			break
+	return points
 
 
 static func _block_color(type: int) -> Color:

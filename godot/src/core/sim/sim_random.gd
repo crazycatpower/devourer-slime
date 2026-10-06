@@ -3,8 +3,7 @@ extends RefCounted
 ## Small deterministic random generator (Lehmer / MINSTD).
 ##
 ## The simulation uses its own generator instead of the engine's so that a
-## seed reproduces a run exactly, on every platform and in the reference
-## harness that the parity tests compare against.
+## seed reproduces a run exactly on every platform and in simulation tests.
 
 const _MODULUS: int = 2147483647
 const _MULTIPLIER: int = 48271

@@ -8,7 +8,7 @@ extends RefCounted
 ## leave as [signal sfx_requested], and renderers only read the state. That
 ## separation is what makes the game frame-rate independent and testable.
 ##
-## Velocities are in world units per tick, as in the web version.
+## Velocities are in world units per tick.
 
 signal sfx_requested(id: Sfx.Id, param: float, delay_sec: float)
 signal level_reset
@@ -65,8 +65,12 @@ func reset() -> void:
 	if boss.active:
 		boss.x = BossSystem.spawn_x(level, boss.w)
 		boss.prev_x = boss.x
+	if boss_kind == BossState.Kind.WORLD_3:
+		BossWorld3.sync_orbiting_shields(self)
 	if boss_kind == BossState.Kind.WORLD_1:
 		BossWorld1.build_arena(self)
+	if boss_kind == BossState.Kind.STEEL_CHASE:
+		BossSteelChase.setup(self)
 	camera.shake = 0.0
 	camera.snap_to(player.center_x(), player.center_y(), level)
 	level_reset.emit()
