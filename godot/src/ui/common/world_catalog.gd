@@ -4,16 +4,35 @@ extends RefCounted
 ## tile that stands for it.
 
 
+## Presentation order of worlds: World 1 through World 5 in natural sequence.
+const ORDER: Array[int] = [1, 2, 3, 4, 5]
+
+
+static func display_world(world: int) -> int:
+	return ORDER.find(world) + 1
+
+
+static func next_slot(slot: int) -> int:
+	if GameConstants.level_in_world(slot) < GameConstants.LEVELS_PER_WORLD:
+		return slot + 1
+	var next_world_index: int = display_world(GameConstants.world_of_slot(slot))
+	if next_world_index >= ORDER.size():
+		return 0
+	return (ORDER[next_world_index] - 1) * GameConstants.LEVELS_PER_WORLD + 1
+
+
 ## Bright colour for text and highlights.
 static func accent(world: int) -> Color:
 	match world:
 		1:
-			return Palette.AMBER_500
+			return Palette.SLATE_400
 		2:
-			return Palette.PINK_400
+			return Palette.AMBER_500
 		3:
-			return Palette.CYAN_400
+			return Palette.PINK_400
 		4:
+			return Palette.CYAN_400
+		5:
 			return Palette.PURPLE_400
 	return Palette.SLATE_400
 
@@ -22,12 +41,14 @@ static func accent(world: int) -> Color:
 static func fill(world: int) -> Color:
 	match world:
 		1:
-			return Palette.AMBER_600
+			return Palette.SLATE_600
 		2:
-			return Palette.PINK_600
+			return Palette.AMBER_600
 		3:
-			return Palette.CYAN_600
+			return Palette.PINK_600
 		4:
+			return Palette.CYAN_600
+		5:
 			return Palette.PURPLE_600
 	return Palette.SLATE_600
 
@@ -36,12 +57,14 @@ static func fill(world: int) -> Color:
 static func icon_tile(world: int) -> int:
 	match world:
 		1:
-			return Tile.DIRT
+			return Tile.STEEL
 		2:
-			return Tile.BOUNCY
+			return Tile.DIRT
 		3:
-			return Tile.GLASS
+			return Tile.BOUNCY
 		4:
+			return Tile.GLASS
+		5:
 			return Tile.VOID
 	return Tile.STEEL
 
@@ -59,7 +82,7 @@ static func tint_button(button: Button, color: Color) -> void:
 		box.bg_color = shade
 		box.border_color = color.lightened(0.25)
 		box.set_border_width_all(2)
-		box.set_corner_radius_all(14)
+		box.set_corner_radius_all(3)
 		box.content_margin_left = 24.0
 		box.content_margin_right = 24.0
 		box.content_margin_top = 12.0

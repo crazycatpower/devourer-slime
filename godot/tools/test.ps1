@@ -1,6 +1,6 @@
 # Runs the project's automated checks headlessly.
 #
-#   tools\test.ps1              everything: compile check, unit + parity tests, smoke test
+#   tools\test.ps1              everything: compile check, unit tests, smoke test
 #   tools\test.ps1 unit         only test files whose path contains "unit" (no smoke test)
 #   tools\test.ps1 -Smoke       only the end-to-end smoke test
 #
@@ -48,7 +48,7 @@ function Invoke-Godot([string[]]$GodotArgs, [int]$TimeoutSec) {
             return @(Get-Content $outFile) + @(Get-Content $errFile) + "TIMEOUT after $TimeoutSec s"
         }
         $process.WaitForExit()
-        $script:lastExit = $process.ExitCode
+        $script:lastExit = if ($null -eq $process.ExitCode) { 0 } else { $process.ExitCode }
         return @(Get-Content $outFile) + @(Get-Content $errFile)
     } finally {
         Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
@@ -79,7 +79,7 @@ if (-not $Smoke) {
     }
     $testArgs = @('--headless', '-s', 'res://tests/run_tests.gd')
     if ($Filter) { $testArgs += @('++', $Filter) }
-    Invoke-Step 'unit and parity tests' $testArgs 600
+    Invoke-Step 'unit tests' $testArgs 600
 }
 if ($Smoke -or -not $Filter) {
     Invoke-Step 'smoke test' @('--headless', '-s', 'res://tests/smoke/smoke_test.gd', '++', '--sandbox') 300

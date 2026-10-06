@@ -4,9 +4,8 @@ extends Control
 ## size, import/export, undo and saving.
 ##
 ## The document lives in a [LevelEditor]; this screen turns mouse and key
-## input into edits and keeps the widgets in step with it. Unsaved work is
-## never dropped silently: leaving or switching slots asks first, and test
-## play runs the working copy as it is.
+## input into edits and keeps the widgets in step with it. All modifications
+## are automatically saved to disk without requiring confirmation prompts.
 
 signal menu_requested
 signal test_requested(slot: int, level: LevelData)
@@ -35,6 +34,9 @@ var _panning: bool = false
 var _brush_buttons: Dictionary[int, Button] = {}
 var _spike_buttons: Array[Button] = []
 var _preset_buttons: Array[Button] = []
+var _zoom_label: Button
+var _space_panning: bool = false
+var _saving: bool = false
 
 @onready var _backdrop: MenuBackdrop = %Backdrop
 @onready var _view: WorldView = %WorldView
@@ -52,8 +54,8 @@ var _preset_buttons: Array[Button] = []
 @onready var _spike_row: HBoxContainer = %SpikeRow
 @onready var _undo_button: Button = %UndoButton
 @onready var _redo_button: Button = %RedoButton
-@onready var _width_value: Label = %WidthValue
-@onready var _height_value: Label = %HeightValue
+@onready var _width_value: LineEdit = %WidthValue
+@onready var _height_value: LineEdit = %HeightValue
 @onready var _width_minus: Button = %WidthMinus
 @onready var _width_plus: Button = %WidthPlus
 @onready var _height_minus: Button = %HeightMinus
@@ -65,7 +67,6 @@ var _preset_buttons: Array[Button] = []
 @onready var _import_error: Label = %ImportError
 @onready var _import_button: Button = %ImportButton
 @onready var _save_button: Button = %SaveButton
-@onready var _revert_button: Button = %RevertButton
 @onready var _clear_button: Button = %ClearButton
 @onready var _confirm: ConfirmDialog = %ConfirmDialog
 
@@ -79,14 +80,16 @@ func _ready() -> void:
 	_build_brush_buttons()
 	_build_spike_buttons()
 	_build_preset_buttons()
+	_build_view_controls()
 
 	_view.sim = _sim
 	_view.editor = _editor
 	_view.gui_input.connect(_on_view_gui_input)
+	_view.resized.connect(func() -> void: _move_camera(Vector2.ZERO))
 
 	_editor.changed.connect(_on_level_changed)
 	_editor.brush_changed.connect(_refresh_brushes)
-	_editor.history_changed.connect(_refresh_status)
+	_editor.history_changed.connect(_on_history_changed)
 
 	_menu_button.pressed.connect(_on_menu_pressed)
 	_play_button.pressed.connect(_on_play_pressed)
@@ -94,16 +97,25 @@ func _ready() -> void:
 	_next_button.pressed.connect(_change_slot.bind(1))
 	_undo_button.pressed.connect(_editor.undo)
 	_redo_button.pressed.connect(_editor.redo)
-	_width_minus.pressed.connect(_resize_by.bind(-10, 0))
-	_width_plus.pressed.connect(_resize_by.bind(10, 0))
-	_height_minus.pressed.connect(_resize_by.bind(0, -5))
-	_height_plus.pressed.connect(_resize_by.bind(0, 5))
+	_width_minus.pressed.connect(_on_step_width.bind(-1))
+	_width_plus.pressed.connect(_on_step_width.bind(1))
+	_height_minus.pressed.connect(_on_step_height.bind(-1))
+	_height_plus.pressed.connect(_on_step_height.bind(1))
+	_width_value.text_submitted.connect(_on_width_submitted)
+	_width_value.focus_exited.connect(_on_width_focus_exited)
+	_height_value.text_submitted.connect(_on_height_submitted)
+	_height_value.focus_exited.connect(_on_height_focus_exited)
+	_width_minus.tooltip_text = "減 1 格 (Shift 減 5 格)"
+	_width_plus.tooltip_text = "加 1 格 (Shift 加 5 格)"
+	_height_minus.tooltip_text = "減 1 格 (Shift 減 5 格)"
+	_height_plus.tooltip_text = "加 1 格 (Shift 加 5 格)"
+	_width_value.tooltip_text = "直接輸入地圖寬度 (10~200)"
+	_height_value.tooltip_text = "直接輸入地圖高度 (10~120)"
 	_export_slot_button.pressed.connect(_on_export_slot_pressed)
 	_export_all_button.pressed.connect(_on_export_all_pressed)
 	_import_button.pressed.connect(_on_import_pressed)
 	_import_text.text_changed.connect(func() -> void: _import_error.visible = false)
 	_save_button.pressed.connect(_save)
-	_revert_button.pressed.connect(_on_revert_pressed)
 	_clear_button.pressed.connect(_on_clear_pressed)
 	LevelStore.custom_levels_changed.connect(_refresh_status)
 
@@ -111,6 +123,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_view.editor_erasing = _erasing
+	# A release outside the canvas or a lost focus must still finish the gesture.
+	if _painting and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT if not _erasing else MOUSE_BUTTON_RIGHT):
+		_end_stroke()
+	if _panning and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT if _space_panning else MOUSE_BUTTON_MIDDLE):
+		_panning = false
 	# Typing in a text box must not scroll the level.
 	var focus: Control = get_viewport().gui_get_focus_owner()
 	if focus is TextEdit or focus is LineEdit or _confirm.visible:
@@ -119,7 +137,7 @@ func _process(delta: float) -> void:
 		Input.get_axis(InputBindings.MOVE_LEFT, InputBindings.MOVE_RIGHT),
 		Input.get_axis(InputBindings.MOVE_UP, InputBindings.MOVE_DOWN)
 	)
-	if direction != Vector2.ZERO:
+	if direction != Vector2.ZERO and not Input.is_key_pressed(KEY_CTRL) and not Input.is_key_pressed(KEY_META):
 		_move_camera(direction * PAN_SPEED * delta)
 
 
@@ -127,8 +145,35 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or _confirm.visible:
 		return
 	var key: InputEventKey = event
-	if not key.pressed or not key.is_command_or_control_pressed():
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	if focus is TextEdit or focus is LineEdit:
 		return
+	if not key.pressed or key.echo:
+		return
+	if not key.is_command_or_control_pressed():
+		if key.keycode >= KEY_1 and key.keycode <= KEY_9:
+			_end_stroke()
+			_editor.set_brush(BRUSH_ORDER[int(key.keycode - KEY_1)])
+		elif key.keycode == KEY_R:
+			_end_stroke()
+			_editor.set_spike_direction(posmod(_editor.spike_direction + 1, 4) as LevelEditor.SpikeDirection)
+		elif key.keycode == KEY_HOME:
+			_focus_start()
+		elif key.keycode == KEY_F:
+			_fit_map()
+		elif key.keycode == KEY_LEFT or key.keycode == KEY_A:
+			_move_camera(Vector2(-60.0, 0.0) / maxf(_view.world_scale, 0.001))
+		elif key.keycode == KEY_RIGHT or key.keycode == KEY_D:
+			_move_camera(Vector2(60.0, 0.0) / maxf(_view.world_scale, 0.001))
+		elif key.keycode == KEY_UP or key.keycode == KEY_W:
+			_move_camera(Vector2(0.0, -60.0) / maxf(_view.world_scale, 0.001))
+		elif key.keycode == KEY_DOWN or key.keycode == KEY_S:
+			_move_camera(Vector2(0.0, 60.0) / maxf(_view.world_scale, 0.001))
+		else:
+			return
+		get_viewport().set_input_as_handled()
+		return
+	_end_stroke()
 	match key.keycode:
 		KEY_Z:
 			if key.shift_pressed:
@@ -139,6 +184,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_editor.redo()
 		KEY_S:
 			_save()
+		KEY_C:
+			_editor.set_brush(LevelEditor.Brush.COPY)
+		KEY_V:
+			if _editor.clipboard != null:
+				_editor.set_brush(LevelEditor.Brush.PASTE)
 		_:
 			return
 	get_viewport().set_input_as_handled()
@@ -147,16 +197,35 @@ func _unhandled_key_input(event: InputEvent) -> void:
 # --- Painting ---------------------------------------------------------------------
 
 func _on_view_gui_input(event: InputEvent) -> void:
+	if _confirm.visible:
+		return
 	if event is InputEventMouseButton:
 		var button: InputEventMouseButton = event
+		if button.pressed:
+			var focus: Control = get_viewport().gui_get_focus_owner()
+			if focus != null:
+				focus.release_focus()
 		match button.button_index:
 			MOUSE_BUTTON_LEFT:
 				if button.pressed:
-					_begin_left_stroke()
+					_end_stroke()
+					if Input.is_key_pressed(KEY_SPACE):
+						_end_stroke()
+						_panning = true
+						_space_panning = true
+					elif button.alt_pressed:
+						_end_stroke()
+						_editor.pick_brush(_hover_cell())
+					else:
+						_begin_left_stroke()
 				else:
 					_end_stroke()
+					if _space_panning:
+						_panning = false
 			MOUSE_BUTTON_RIGHT:
 				if button.pressed:
+					_end_stroke()
+					_panning = false
 					_painting = true
 					_erasing = true
 					_editor.begin_stroke()
@@ -164,13 +233,20 @@ func _on_view_gui_input(event: InputEvent) -> void:
 				else:
 					_end_stroke()
 			MOUSE_BUTTON_MIDDLE:
+				_end_stroke()
 				_panning = button.pressed
+				_space_panning = false
+			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN:
+				if button.pressed:
+					_set_zoom(_view.editor_zoom * (1.2 if button.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.2), button.position)
 		_view.accept_event()
 	elif event is InputEventMouseMotion:
 		var motion: InputEventMouseMotion = event
 		if _panning:
 			_move_camera(-motion.relative / maxf(_view.world_scale, 0.001))
 		elif _painting:
+			if not Rect2(Vector2.ZERO, _view.size).has_point(_view.get_local_mouse_position()):
+				return
 			if _editor.brush == LevelEditor.Brush.COPY and not _erasing:
 				_editor.update_selection(_hover_cell())
 			else:
@@ -195,13 +271,15 @@ func _begin_left_stroke() -> void:
 func _end_stroke() -> void:
 	if not _painting:
 		return
-	if _editor.brush == LevelEditor.Brush.COPY and not _erasing:
+	_painting = false
+	_erasing = false
+	if _editor.brush == LevelEditor.Brush.COPY:
 		_editor.finish_selection()
 		toast_requested.emit("已複製選取範圍，點一下即可貼上")
 	else:
 		_editor.end_stroke()
-	_painting = false
-	_erasing = false
+	if _editor.is_dirty():
+		_auto_save()
 
 
 func _hover_cell() -> Vector2i:
@@ -213,7 +291,7 @@ func _move_camera(offset: Vector2) -> void:
 	var camera: SimCamera = _sim.camera
 	camera.x += offset.x
 	camera.y += offset.y
-	camera.apply_limits(_sim.level)
+	_limit_camera()
 	camera.prev_x = camera.x
 	camera.prev_y = camera.y
 
@@ -230,11 +308,26 @@ func _open_slot(slot: int) -> void:
 		(float(start.x) + 0.5) * Tile.SIZE, (float(start.y) + 0.5) * Tile.SIZE, _editor.level.grid
 	)
 	_import_error.visible = false
+	_focus_start()
 	_refresh_brushes()
 	_refresh_status()
 
 
+func _auto_save() -> void:
+	if _saving or not _editor.is_dirty():
+		return
+	_saving = true
+	var error: Error = LevelStore.save_custom(_slot, _editor.level)
+	if error != OK:
+		toast_requested.emit("自動儲存失敗（%s）" % error_string(error))
+		_saving = false
+		return
+	_editor.mark_saved()
+	_saving = false
+
+
 func _save() -> void:
+	_end_stroke()
 	var error: Error = LevelStore.save_custom(_slot, _editor.level)
 	if error != OK:
 		toast_requested.emit("儲存失敗（%s）" % error_string(error))
@@ -243,21 +336,19 @@ func _save() -> void:
 	toast_requested.emit("關卡已儲存")
 
 
-## Runs [param action] once any unsaved changes have been dealt with: saved,
-## knowingly discarded, or (when the player cancels) not at all.
+## Runs [param action] after settling in-progress edits and auto-saving.
+## Confirmation is not required since edits are saved automatically.
 func run_when_changes_settled(action: Callable) -> void:
-	if not _editor.is_dirty():
-		action.call()
-		return
-	_confirm.ask("這個關卡有尚未儲存的變更。", ["儲存後繼續", "不儲存", "取消"], 1)
-	var choice: int = await _confirm.chosen
-	if choice == 0:
-		_save()
-		if _editor.is_dirty():
-			return  # Saving failed; stay here.
-		action.call()
-	elif choice == 1:
-		action.call()
+	# Finish text editing while the controls still belong to this viewport.
+	# Removing a focused editor first can leave native IME input active and
+	# also commits the size too late for the test-play snapshot.
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	if focus != null and is_ancestor_of(focus):
+		focus.release_focus()
+	_end_stroke()
+	if _editor.is_dirty():
+		_auto_save()
+	action.call()
 
 
 func _on_menu_pressed() -> void:
@@ -265,27 +356,18 @@ func _on_menu_pressed() -> void:
 
 
 func _on_play_pressed() -> void:
-	# Test play runs the working copy, saved or not.
-	test_requested.emit(_slot, _editor.level.duplicate_level())
+	run_when_changes_settled(func() -> void:
+		test_requested.emit(_slot, _editor.level.duplicate_level())
+	)
 
 
 func _change_slot(step: int) -> void:
-	var target: int = _slot + step
-	if target < 1 or target > GameConstants.SLOT_COUNT:
+	var position: int = _display_slot() + step
+	if position < 1 or position > GameConstants.SLOT_COUNT:
 		return
+	var world_index: int = floori(float(position - 1) / GameConstants.LEVELS_PER_WORLD)
+	var target: int = (WorldCatalog.ORDER[world_index] - 1) * GameConstants.LEVELS_PER_WORLD + GameConstants.level_in_world(position)
 	run_when_changes_settled(_open_slot.bind(target))
-
-
-func _on_revert_pressed() -> void:
-	_confirm.ask("要刪除 SLOT %d 的自訂存檔，還原成內建關卡嗎？\n這個動作無法復原。" % _slot, ["還原", "取消"], 0)
-	if await _confirm.chosen != 0:
-		return
-	var error: Error = LevelStore.delete_custom(_slot)
-	if error != OK:
-		toast_requested.emit("還原失敗（%s）" % error_string(error))
-		return
-	_open_slot(_slot)
-	toast_requested.emit("已還原為內建關卡")
 
 
 func _on_clear_pressed() -> void:
@@ -295,8 +377,110 @@ func _on_clear_pressed() -> void:
 		toast_requested.emit("畫布已清空")
 
 
+func _on_step_width(dir: int) -> void:
+	var step: int = 5 if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL) else 1
+	_resize_by(dir * step, 0)
+
+
+func _on_step_height(dir: int) -> void:
+	var step: int = 5 if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL) else 1
+	_resize_by(0, dir * step)
+
+
+func _on_width_submitted(new_text: String) -> void:
+	_end_stroke()
+	if new_text.is_valid_int():
+		var cols: int = clampi(new_text.to_int(), GameConstants.MIN_LEVEL_COLS, GameConstants.MAX_LEVEL_COLS)
+		_editor.resize(cols, _editor.level.grid.rows)
+	else:
+		_width_value.text = str(_editor.level.grid.cols)
+	_width_value.release_focus()
+
+
+func _on_width_focus_exited() -> void:
+	_on_width_submitted(_width_value.text)
+
+
+func _on_height_submitted(new_text: String) -> void:
+	_end_stroke()
+	if new_text.is_valid_int():
+		var rows: int = clampi(new_text.to_int(), GameConstants.MIN_LEVEL_ROWS, GameConstants.MAX_LEVEL_ROWS)
+		_editor.resize(_editor.level.grid.cols, rows)
+	else:
+		_height_value.text = str(_editor.level.grid.rows)
+	_height_value.release_focus()
+
+
+func _on_height_focus_exited() -> void:
+	_on_height_submitted(_height_value.text)
+
+
 func _resize_by(cols: int, rows: int) -> void:
+	_end_stroke()
 	_editor.resize(_editor.level.grid.cols + cols, _editor.level.grid.rows + rows)
+
+
+func _display_slot() -> int:
+	return (WorldCatalog.display_world(GameConstants.world_of_slot(_slot)) - 1) * GameConstants.LEVELS_PER_WORLD + GameConstants.level_in_world(_slot)
+
+
+func _limit_camera() -> void:
+	var scale_value: float = maxf(_view.size.x / GameConstants.VIEW_WIDTH * _view.editor_zoom, 0.001)
+	var extent: Vector2 = _view.size / scale_value
+	_sim.camera.x = SimCamera.limit(_sim.camera.x, _sim.level.pixel_width(), extent.x)
+	_sim.camera.y = SimCamera.limit(_sim.camera.y, _sim.level.pixel_height(), extent.y)
+
+
+func _set_zoom(value: float, anchor: Vector2) -> void:
+	_end_stroke()
+	var old_scale: float = maxf(_view.size.x / GameConstants.VIEW_WIDTH * _view.editor_zoom, 0.001)
+	var point: Vector2 = Vector2(_sim.camera.x, _sim.camera.y) + anchor / old_scale
+	_view.editor_zoom = clampf(value, 0.1, 4.0)
+	_view.world_scale = maxf(_view.size.x / GameConstants.VIEW_WIDTH * _view.editor_zoom, 0.001)
+	var target: Vector2 = point - anchor / _view.world_scale
+	_move_camera(target - Vector2(_sim.camera.x, _sim.camera.y))
+	_zoom_label.text = "%d%%" % roundi(_view.editor_zoom * 100.0)
+
+
+func _fit_map() -> void:
+	var scale_value: float = minf(_view.size.x / _sim.level.pixel_width(), _view.size.y / _sim.level.pixel_height())
+	_set_zoom(scale_value * GameConstants.VIEW_WIDTH / maxf(_view.size.x, 1.0), _view.size / 2.0)
+	_move_camera(Vector2.ZERO)
+
+
+func _focus_start() -> void:
+	var scale_value: float = maxf(_view.size.x / GameConstants.VIEW_WIDTH * _view.editor_zoom, 0.001)
+	var target: Vector2 = (Vector2(_editor.level.start_cell) + Vector2(0.5, 0.5)) * Tile.SIZE
+	_move_camera(target - _view.size / scale_value / 2.0 - Vector2(_sim.camera.x, _sim.camera.y))
+
+
+func _build_view_controls() -> void:
+	var bar: HBoxContainer = HBoxContainer.new()
+	bar.add_theme_constant_override(&"separation", 8)
+	var area: Node = _view.get_parent().get_parent()
+	area.add_child(bar)
+	area.move_child(bar, 1)
+	for caption: String in ["−", "100%", "+", "全圖", "起點"]:
+		var button: Button = Button.new()
+		button.text = caption
+		button.focus_mode = Control.FOCUS_NONE
+		button.theme_type_variation = &"ChipButton"
+		bar.add_child(button)
+		match caption:
+			"−":
+				button.pressed.connect(func() -> void: _set_zoom(_view.editor_zoom / 1.2, _view.size / 2.0))
+			"+":
+				button.pressed.connect(func() -> void: _set_zoom(_view.editor_zoom * 1.2, _view.size / 2.0))
+			"100%":
+				_zoom_label = button
+				button.tooltip_text = "重設縮放；滾輪以游標為中心縮放"
+				button.pressed.connect(func() -> void: _set_zoom(1.0, _view.size / 2.0))
+			"全圖":
+				button.tooltip_text = "顯示整張地圖 (F)"
+				button.pressed.connect(_fit_map)
+			"起點":
+				button.tooltip_text = "回到玩家起點 (Home)"
+				button.pressed.connect(_focus_start)
 
 
 # --- Import and export -------------------------------------------------------------------
@@ -316,10 +500,9 @@ func _on_export_all_pressed() -> void:
 
 
 func _on_import_pressed() -> void:
+	_end_stroke()
 	if _editor.is_dirty():
-		_confirm.ask("匯入可能會覆蓋這個關卡尚未儲存的變更。", ["繼續匯入", "取消"], 0)
-		if await _confirm.chosen != 0:
-			return
+		_auto_save()
 	var result: LevelRepository.ImportResult = LevelStore.import_text(_import_text.text, _slot)
 	if not result.ok:
 		_import_error.text = result.message
@@ -340,30 +523,45 @@ func _on_level_changed() -> void:
 	_sim.level = level.grid
 	_sim.player = PlayerState.new()
 	_sim.player.place_at(level.start_x(), level.start_y())
-	_sim.camera.apply_limits(level.grid)
+	_limit_camera()
 	_sim.camera.prev_x = _sim.camera.x
 	_sim.camera.prev_y = _sim.camera.y
 	_refresh_status()
 
 
+func _on_history_changed() -> void:
+	if not _painting and _editor.is_dirty():
+		_auto_save()
+	_refresh_status()
+
+
 func _refresh_status() -> void:
-	var world: int = GameConstants.world_of_slot(_slot)
-	var accent: Color = WorldCatalog.accent(world)
+	var world: int = WorldCatalog.display_world(GameConstants.world_of_slot(_slot))
+	var source_world: int = GameConstants.world_of_slot(_slot)
+	var accent: Color = WorldCatalog.accent(source_world)
 	var grid: LevelGrid = _editor.level.grid
-	_backdrop.glow_color = WorldCatalog.fill(world)
+	_backdrop.glow_color = WorldCatalog.fill(source_world)
 	_slot_caption.text = "WORLD %d  //  LEVEL %d" % [world, GameConstants.level_in_world(_slot)]
 	_slot_caption.add_theme_color_override(&"font_color", accent)
 	_slot_label.text = "SLOT %02d" % _slot
 	_slot_label.add_theme_color_override(&"font_color", accent)
-	_prev_button.disabled = _slot <= 1
-	_next_button.disabled = _slot >= GameConstants.SLOT_COUNT
+	_prev_button.disabled = _display_slot() <= 1
+	_next_button.disabled = _display_slot() >= GameConstants.SLOT_COUNT
 
-	var source: String = "自訂存檔" if LevelStore.has_custom(_slot) else "內建關卡"
-	_slot_info.text = "SLOT %02d（WORLD %d）· %s" % [_slot, world, source]
-	_dirty_label.visible = _editor.is_dirty()
-	_size_info.text = "%d × %d" % [grid.cols, grid.rows]
-	_width_value.text = str(grid.cols)
-	_height_value.text = str(grid.rows)
+	_slot_info.text = "SLOT %02d（WORLD %d）" % [_slot, world]
+	_dirty_label.visible = true
+	if _editor.is_dirty():
+		_dirty_label.text = "● 編輯中..."
+		_dirty_label.add_theme_color_override(&"font_color", Palette.AMBER_400)
+		_save_button.text = "儲存中..."
+	else:
+		_dirty_label.text = "✓ 已自動儲存"
+		_dirty_label.add_theme_color_override(&"font_color", Palette.EMERALD_400)
+		_save_button.text = "已自動儲存 AUTO SAVED"
+	if not _width_value.has_focus():
+		_width_value.text = str(grid.cols)
+	if not _height_value.has_focus():
+		_height_value.text = str(grid.rows)
 	_width_minus.disabled = grid.cols <= GameConstants.MIN_LEVEL_COLS
 	_width_plus.disabled = grid.cols >= GameConstants.MAX_LEVEL_COLS
 	_height_minus.disabled = grid.rows <= GameConstants.MIN_LEVEL_ROWS
@@ -375,8 +573,6 @@ func _refresh_status() -> void:
 
 	_undo_button.disabled = not _editor.can_undo()
 	_redo_button.disabled = not _editor.can_redo()
-	_revert_button.disabled = not LevelStore.has_custom(_slot)
-	_save_button.text = "儲存關卡 SAVE ●" if _editor.is_dirty() else "儲存關卡 SAVE"
 
 
 func _refresh_brushes() -> void:
@@ -396,7 +592,8 @@ func _build_brush_buttons() -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(0.0, 96.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.tooltip_text = BrushIcon.label_for(brush)
+		var shortcut_index: int = BRUSH_ORDER.find(brush)
+		button.tooltip_text = "%s (%d)" % [BrushIcon.label_for(brush), shortcut_index + 1] if shortcut_index < 9 else BrushIcon.label_for(brush)
 		button.pressed.connect(_editor.set_brush.bind(brush))
 
 		# Icon above caption, laid out inside the button.

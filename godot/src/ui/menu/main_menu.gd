@@ -13,7 +13,7 @@ const GRID_SLOTS: int = GameConstants.LEVELS_PER_WORLD - 1
 ## Delay between one level card appearing and the next.
 const CARD_STAGGER_SEC: float = 0.022
 
-var _world: int = 1
+var _world: int = WorldCatalog.ORDER[0]
 var _custom_tab: bool = false
 var _cards: Array[LevelCard] = []
 var _world_buttons: Array[Button] = []
@@ -54,7 +54,7 @@ func is_custom_tab() -> bool:
 
 
 func _ready() -> void:
-	for world: int in range(1, GameConstants.WORLD_COUNT + 1):
+	for world: int in WorldCatalog.ORDER:
 		_world_tabs.add_child(_make_world_button(world))
 	for _i: int in GRID_SLOTS:
 		var card: LevelCard = LEVEL_CARD.instantiate()
@@ -104,7 +104,7 @@ func _make_world_button(world: int) -> Button:
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	content.add_child(icon)
 	var caption: Label = Label.new()
-	caption.text = "WORLD %02d" % world
+	caption.text = "WORLD %02d" % WorldCatalog.display_world(world)
 	caption.theme_type_variation = &"HeadingLabel"
 	caption.add_theme_font_size_override(&"font_size", 21)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -150,10 +150,10 @@ func _refresh() -> void:
 	_official_tab.set_pressed_no_signal(not _custom_tab)
 	_custom_tab_button.set_pressed_no_signal(_custom_tab)
 	for i: int in _world_buttons.size():
-		var selected: bool = i + 1 == _world
+		var selected: bool = WorldCatalog.ORDER[i] == _world
 		_world_buttons[i].set_pressed_no_signal(selected)
 		_world_captions[i].add_theme_color_override(
-			&"font_color", WorldCatalog.accent(i + 1) if selected else Palette.SLATE_400
+			&"font_color", WorldCatalog.accent(WorldCatalog.ORDER[i]) if selected else Palette.SLATE_400
 		)
 
 	_section_title.text = "自訂地圖創作 CUSTOM WORKSPACE" if _custom_tab else "冒險挑戰關卡 LEVEL SELECT"

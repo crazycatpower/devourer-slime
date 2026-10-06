@@ -1,6 +1,0 @@
-{
-  "name": "Slime Block Eater",
-  "description": "An offline platformer game where you eat blocks to jump and bounce. Play through 5 unique worlds, each containing 12 stages and an epic boss stage, or create and test your own levels.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

@@ -4,7 +4,7 @@ extends Control
 ## bullet-time vignette, the boss entrance warning, the death flash and the
 ## "wasted" / "level cleared" screens.
 ##
-## Drawn in the web version's 960x540 canvas units, scaled to the view. The
+## Drawn in 960x540 canvas units, scaled to the view. The
 ## animations here are presentation only and run on real time.
 
 const CANVAS_WIDTH: float = GameConstants.CANVAS_WIDTH
@@ -45,6 +45,7 @@ var _card_subtitle: String = ""
 var _card_color: Color = Palette.WHITE
 var _card_age: float = INF
 ## Seconds the current result screen has been up.
+var exit_in_progress: bool = false
 var _won_age: float = 0.0
 var _dead_age: float = 0.0
 
@@ -83,13 +84,17 @@ func _draw() -> void:
 	# Only the entrance that opens the fight gets the full-screen warning.
 	var boss_entrance: bool = (
 		sim.boss.active and sim.boss.state == BossState.State.INTRO
-		and sim.boss.intro_freezes_player
+		and (sim.boss.intro_freezes_player or sim.boss_kind == BossState.Kind.STEEL_CHASE)
 	)
 	if boss_entrance:
 		_draw_boss_intro(p, t)
 
 	var player: PlayerState = sim.player
 	if player.won:
+		if exit_in_progress:
+			var fade: float = clampf((_won_age - GoalVortex.DURATION + 0.25) / 0.25, 0.0, 1.0)
+			p.fill_rect(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT, Color(Palette.SLATE_950, fade))
+			return
 		_draw_result(p, _won_age, "LEVEL CLEARED!", Palette.EMERALD_500, Color(0.0, 0.0, 0.0, 0.7), win_lines)
 	elif player.dead:
 		if sim.death_timer < DEATH_FLASH_TICKS:

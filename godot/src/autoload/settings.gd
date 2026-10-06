@@ -25,8 +25,7 @@ var _save_queued: bool = false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load()
-	for action: StringName in InputBindings.ALL:
-		InputBindings.apply_to_input_map(action, _bindings[action])
+	_apply_bindings()
 	_apply_fullscreen()
 
 
@@ -36,6 +35,8 @@ func _notification(what: int) -> void:
 
 
 func set_volume(value: float) -> void:
+	if not is_finite(value):
+		return
 	var clamped: float = clampf(value, 0.0, 1.0)
 	if is_equal_approx(clamped, volume):
 		return
@@ -53,6 +54,8 @@ func set_muted(value: bool) -> void:
 
 
 func set_game_speed(value: float) -> void:
+	if not is_finite(value):
+		return
 	var clamped: float = clampf(value, GAME_SPEEDS[0], GAME_SPEEDS[-1])
 	if is_equal_approx(clamped, game_speed):
 		return
@@ -96,6 +99,7 @@ func rebind(action: StringName, event: InputEvent) -> void:
 		if other != action and InputBindings.same_binding(_bindings[other], new_event):
 			_set_binding(other, old_event)
 	_set_binding(action, new_event)
+	_apply_bindings()
 	bindings_changed.emit()
 	_queue_save()
 
@@ -103,6 +107,7 @@ func rebind(action: StringName, event: InputEvent) -> void:
 func reset_bindings() -> void:
 	for action: StringName in InputBindings.ALL:
 		_set_binding(action, InputBindings.default_event(action))
+	_apply_bindings()
 	bindings_changed.emit()
 	_queue_save()
 
@@ -112,6 +117,20 @@ func _conflict_group(action: StringName) -> Array[StringName]:
 	if action in InputBindings.GAMEPLAY:
 		return InputBindings.GAMEPLAY
 	return [InputBindings.MOVE_UP, InputBindings.MOVE_DOWN, InputBindings.MOVE_LEFT, InputBindings.MOVE_RIGHT]
+
+
+func _apply_bindings() -> void:
+	for action: StringName in InputBindings.ALL:
+		InputBindings.apply_to_input_map(action, _bindings[action])
+	# A deliberately chosen gameplay key takes priority over another action's
+	# optional alias, such as Space assigned to shooting instead of jumping.
+	for action: StringName in InputBindings.GAMEPLAY:
+		for other: StringName in InputBindings.GAMEPLAY:
+			if action == other:
+				continue
+			for event: InputEvent in InputMap.action_get_events(action):
+				if not InputBindings.same_binding(event, _bindings[action]) and InputBindings.same_binding(event, _bindings[other]):
+					InputMap.action_erase_event(action, event)
 
 
 func _set_binding(action: StringName, event: InputEvent) -> void:
@@ -134,7 +153,7 @@ func _load() -> void:
 		_bindings[action] = InputBindings.default_event(action)
 
 	var config: ConfigFile = ConfigFile.new()
-	if config.load(SavePaths.settings_file()) != OK:
+	if SafeConfig.load_file(config, SavePaths.settings_file()) != OK:
 		return  # First run, or an unreadable file: keep the defaults.
 	volume = clampf(_read_float(config, "audio", "volume", volume), 0.0, 1.0)
 	muted = _read_bool(config, "audio", "muted", muted)
@@ -171,15 +190,18 @@ func _flush() -> void:
 	for action: StringName in InputBindings.ALL:
 		config.set_value("input", action, InputBindings.encode(_bindings[action]))
 	DirAccess.make_dir_recursive_absolute(SavePaths.root())
-	var error: Error = config.save(SavePaths.settings_file())
+	var error: Error = SafeConfig.save_file(config, SavePaths.settings_file())
 	if error != OK:
 		push_warning("Settings: could not save (%s)" % error_string(error))
 
 
 static func _read_float(config: ConfigFile, section: String, key: String, fallback: float) -> float:
 	var value: Variant = config.get_value(section, key, fallback)
-	if value is float or value is int:
-		return value
+	if value is float:
+		var number: float = value as float
+		return number if is_finite(number) else fallback
+	if value is int:
+		return float(value as int)
 	return fallback
 
 

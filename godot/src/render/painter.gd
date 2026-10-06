@@ -50,6 +50,12 @@ func scale(sx: float, sy: float) -> void:
 	ci.draw_set_transform_matrix(xf)
 
 
+## A flat-footed jelly lean: the top shifts while the bottom stays horizontal.
+func shear_x(amount: float) -> void:
+	xf = xf * Transform2D(Vector2.RIGHT, Vector2(amount, 1.0), Vector2.ZERO)
+	ci.draw_set_transform_matrix(xf)
+
+
 func fill_rect(x: float, y: float, w: float, h: float, color: Color) -> void:
 	ci.draw_rect(Rect2(x, y, w, h), color)
 

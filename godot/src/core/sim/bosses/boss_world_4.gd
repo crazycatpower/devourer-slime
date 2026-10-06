@@ -95,11 +95,7 @@ static func _update_intro(sim: GameSim) -> void:
 		var pvy: float = (sim.rng.next_float() - 0.5) * 3.0
 		sim.add_particle(px, py, pvx, pvy, 15.0, Palette.RED_500, sim.rng.next_float() * 2.0 + 1.0)
 	if boss.intro_timer <= 0:
-		boss.state = BossState.State.FALLING
-		boss.vy = 2.0
-		sim.camera.shake = 30.0
-		sim.play(Sfx.Id.BOUNCE)
-		sim.spawn_particles(boss.center_x(), boss.center_y(), Palette.RED_500, 40, 7.0)
+		BossSystem.finish_intro(sim, 30.0, Palette.RED_500, 40, 7.0)
 
 
 static func _update_falling(sim: GameSim) -> void:
@@ -559,14 +555,15 @@ static func feed_cell(
 
 
 ## Once the boss is full, holding eat while aiming at it devours it cell by
-## cell. Letting go lets the progress drain away.
+## cell. An interrupted swallow can only drain to the last consumed cell.
 static func _update_devouring(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var player: PlayerState = sim.player
 	if not (boss.is_filled() or boss.eating_progress > 0.0):
 		return
 	if not (is_player_aiming_at_boss(sim) and sim.input.eat and not player.has_block):
-		boss.eating_progress = maxf(0.0, boss.eating_progress - 0.025)
+		var checkpoint: float = float(8 - boss.filled_count()) / 10.0
+		boss.eating_progress = maxf(checkpoint, boss.eating_progress - 0.025)
 		return
 
 	boss.eating_progress += 1.0 / DEVOUR_TICKS

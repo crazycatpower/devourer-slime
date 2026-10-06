@@ -31,10 +31,11 @@ func show_slot(slot: int, custom_tab: bool) -> void:
 	_slot = slot
 	var world: int = GameConstants.world_of_slot(slot)
 	var index: int = GameConstants.level_in_world(slot)
-	var is_boss_stage: bool = index == GameConstants.LEVELS_PER_WORLD
 	var has_boss: bool = LevelLibrary.is_boss_slot(slot)
+	var is_boss_stage: bool = has_boss or (index == GameConstants.LEVELS_PER_WORLD and LevelLibrary.is_placeholder(slot))
 	var has_custom: bool = LevelStore.has_custom(slot)
 	var accent: Color = WorldCatalog.accent(world)
+	tooltip_text = ""
 
 	_number.text = "%02d" % index
 	_number.add_theme_color_override(
@@ -44,20 +45,19 @@ func show_slot(slot: int, custom_tab: bool) -> void:
 	_icon.visible = is_boss_stage
 
 	if is_boss_stage:
-		_title.text = "WORLD %d 首領挑戰" % world if has_boss else "WORLD %d 首領關卡" % world
+		_title.text = "WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), index]
 		_title.add_theme_color_override(&"font_color", Palette.RED_300)
 	else:
-		_title.text = "SLOT %02d" % slot
-		_title.add_theme_color_override(&"font_color", Palette.SLATE_500)
+		_title.text = "WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), index]
+		_title.add_theme_color_override(&"font_color", Palette.SLATE_300)
 
 	for child: Node in _badges.get_children():
 		child.queue_free()
-	if has_custom:
-		_add_badge("自訂關卡", Palette.INDIGO_300)
-	elif is_boss_stage and not has_boss:
-		_add_badge("首領尚未製作", Palette.SLATE_500)
-	elif LevelLibrary.is_placeholder(slot):
-		_add_badge("空白關卡", Palette.SLATE_500)
+	if not has_custom:
+		if is_boss_stage and not has_boss:
+			_add_badge("首領尚未製作", Palette.SLATE_500)
+		elif LevelLibrary.is_placeholder(slot):
+			_add_badge("空白關卡", Palette.SLATE_500)
 	if not custom_tab and Progress.is_cleared(slot):
 		_add_badge("已通關", Palette.EMERALD_400)
 

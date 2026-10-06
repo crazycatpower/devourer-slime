@@ -11,7 +11,7 @@ var _cleared: Dictionary[int, bool] = {}
 
 func _ready() -> void:
 	var config: ConfigFile = ConfigFile.new()
-	if config.load(SavePaths.progress_file()) != OK:
+	if SafeConfig.load_file(config, SavePaths.progress_file()) != OK:
 		return
 	var stored: Variant = config.get_value("progress", "cleared", PackedInt32Array())
 	if stored is PackedInt32Array:
@@ -45,6 +45,6 @@ func _save() -> void:
 	var config: ConfigFile = ConfigFile.new()
 	config.set_value("progress", "cleared", slots)
 	DirAccess.make_dir_recursive_absolute(SavePaths.root())
-	var error: Error = config.save(SavePaths.progress_file())
+	var error: Error = SafeConfig.save_file(config, SavePaths.progress_file())
 	if error != OK:
 		push_warning("Progress: could not save (%s)" % error_string(error))

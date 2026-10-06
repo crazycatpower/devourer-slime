@@ -15,6 +15,7 @@ const PULSE_STEPS: int = 16
 var _players: Array[AudioStreamPlayer] = []
 var _next_player: int = 0
 var _streams: Dictionary[int, AudioStreamWAV] = {}
+var _cue_streams: Dictionary[int, AudioStreamWAV] = {}
 var _pulse_streams: Dictionary[int, AudioStreamWAV] = {}
 var _last_pulse_msec: int = -PULSE_INTERVAL_MSEC
 var _music: MusicSequencer
@@ -33,6 +34,8 @@ func _ready() -> void:
 	for id: int in Sfx.Id.values():
 		if id != Sfx.Id.DEVOUR_PULSE:
 			_streams[id] = SfxLibrary.build(id as Sfx.Id)
+	for cue: int in SfxLibrary.Cue.values():
+		_cue_streams[cue] = SfxLibrary.build_cue(cue as SfxLibrary.Cue)
 
 	_music = MusicSequencer.new()
 	_music.name = "Music"
@@ -59,6 +62,18 @@ func play_sfx(id: Sfx.Id, param: float = 0.0, delay_sec: float = 0.0) -> void:
 		stream = _pulse_stream(param)
 	else:
 		stream = _streams.get(id)
+	_play_stream(stream)
+
+
+## Plays one of the slime's presentation-only reaction sounds.
+func play_cue(cue: SfxLibrary.Cue) -> void:
+	if Settings.muted:
+		return
+	var stream: AudioStreamWAV = _cue_streams.get(cue)
+	_play_stream(stream)
+
+
+func _play_stream(stream: AudioStreamWAV) -> void:
 	if stream == null:
 		return
 	var player: AudioStreamPlayer = _players[_next_player]

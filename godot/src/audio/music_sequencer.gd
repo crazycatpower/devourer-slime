@@ -5,7 +5,7 @@ extends Node
 ##
 ## Notes are looping single-waveform samples pitched by playback speed, with
 ## their loudness envelope applied every frame. The chords, scales and
-## envelopes are those of the web version's `audio.ts`.
+## envelopes are defined by this sequencer.
 
 const BEAT_SEC: float = 0.28
 const BASE_FREQUENCY: float = 100.0
@@ -85,10 +85,6 @@ func _ready() -> void:
 	_drum_player.bus = bus
 	_drum_player.stream = _drum_tick
 	add_child(_drum_player)
-
-
-func is_playing() -> bool:
-	return _playing
 
 
 func start() -> void:

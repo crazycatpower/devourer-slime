@@ -3,8 +3,7 @@ extends RefCounted
 ## Offline synthesiser that renders oscillator voices into an [AudioStreamWAV].
 ##
 ## The game has no recorded audio: every sound is a short oscillator sweep,
-## as in the web version, which built them live with the Web Audio API. Here
-## they are rendered once to PCM and then played like any other sample.
+## rendered once to PCM and then played like any other sample.
 
 enum Wave { SINE, TRIANGLE, SAWTOOTH }
 enum Ramp { SET, LINEAR, EXPONENTIAL }

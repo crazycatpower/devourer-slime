@@ -1,0 +1,8 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/art/biofactory-v1/world3-recycling-props.png" id="1"]
+
+[resource]
+atlas = ExtResource("1")
+region = Rect2(448, 506, 360, 283)
+filter_clip = true

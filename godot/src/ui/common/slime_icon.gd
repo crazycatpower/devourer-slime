@@ -2,11 +2,7 @@ class_name SlimeIcon
 extends Control
 ## The player slime's face, as a logo or an icon.
 
-const BREATH_PERIOD_SEC: float = 2.4
-## How much the body squashes and stretches while breathing.
-const BREATH_AMOUNT: float = 0.045
-const BLINK_PERIOD_SEC: float = 4.0
-const BLINK_LENGTH_SEC: float = 0.15
+const BODY: Texture2D = preload("res://assets/art/slime-square-v2.png")
 ## Bottom of the body in the icon's 40-unit drawing space; breathing pivots here.
 const FEET_Y: float = 37.0
 
@@ -23,6 +19,8 @@ var animated: bool = false:
 		queue_redraw()
 
 var _time: float = 0.0
+var _motion: SlimeMotion = SlimeMotion.new()
+var _mascot: PlayerState = PlayerState.new()
 
 
 func _init() -> void:
@@ -32,6 +30,8 @@ func _init() -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_mascot.grounded = true
+	_motion.advance(delta, _mascot)
 	queue_redraw()
 
 
@@ -41,22 +41,10 @@ func _draw() -> void:
 	p.translate((size.x - 40.0 * s) / 2.0, (size.y - 40.0 * s) / 2.0)
 	p.scale(s, s)
 
-	var blinking: bool = false
 	if animated:
-		var breath: float = sin(_time / BREATH_PERIOD_SEC * TAU) * BREATH_AMOUNT
 		p.translate(20.0, FEET_Y)
-		p.scale(1.0 + breath, 1.0 - breath)
+		p.rotate(_motion.lean)
+		p.scale(_motion.body_scale.x, _motion.body_scale.y)
 		p.translate(-20.0, -FEET_Y)
-		blinking = fmod(_time, BLINK_PERIOD_SEC) > BLINK_PERIOD_SEC - BLINK_LENGTH_SEC
-
-	p.fill_round_rect(3.0, 5.0, 34.0, 32.0, 11.0, body_color)
-	p.stroke_round_rect(3.0, 5.0, 34.0, 32.0, 11.0, body_color.darkened(0.3), 2.0)
-	if blinking:
-		p.fill_rect(12.0, 17.0, 6.0, 2.0, Palette.SLATE_900)
-		p.fill_rect(22.0, 17.0, 6.0, 2.0, Palette.SLATE_900)
-	else:
-		p.fill_rect(12.0, 13.0, 6.0, 10.0, Palette.WHITE)
-		p.fill_rect(22.0, 13.0, 6.0, 10.0, Palette.WHITE)
-		p.fill_rect(15.0, 16.0, 2.0, 4.0, Palette.SLATE_900)
-		p.fill_rect(25.0, 16.0, 2.0, 4.0, Palette.SLATE_900)
-	p.fill_round_rect(14.0, 27.0, 12.0, 3.0, 1.5, Color(0.0, 0.0, 0.0, 0.35))
+	p.ci.draw_texture_rect(BODY, Rect2(1.0, 1.0, 38.0, 38.0), false)
+	SlimeFace.paint(p, _motion, Vector2(_motion.look_offset, 0.0))

@@ -35,11 +35,13 @@ var _dirty: bool = false
 var _stroke_snapshot: LevelData
 var _stroke_changed: bool = false
 var _last_cell: Vector2i = NO_CELL
+var _saved_level: LevelData
 
 
 ## Starts editing [param data] with a clean history.
 func open(data: LevelData) -> void:
 	level = data.duplicate_level()
+	_saved_level = level.duplicate_level()
 	_undo.clear()
 	_redo.clear()
 	_dirty = false
@@ -51,14 +53,15 @@ func open(data: LevelData) -> void:
 
 
 func is_dirty() -> bool:
-	return _dirty
+	return not level.equals(_saved_level) if _saved_level != null else _dirty
 
 
 ## Call after the level has been written to disk.
 func mark_saved() -> void:
-	if _dirty:
-		_dirty = false
-		history_changed.emit()
+	end_stroke()
+	_saved_level = level.duplicate_level()
+	_dirty = false
+	history_changed.emit()
 
 
 func can_undo() -> bool:
@@ -70,6 +73,7 @@ func can_redo() -> bool:
 
 
 func set_brush(value: Brush) -> void:
+	end_stroke()
 	if value == brush:
 		return
 	brush = value
@@ -123,6 +127,7 @@ static func spike_tile(direction: SpikeDirection) -> int:
 
 ## Opens a stroke: every change until [method end_stroke] undoes as one step.
 func begin_stroke() -> void:
+	end_stroke()
 	_stroke_snapshot = level.duplicate_level()
 	_stroke_changed = false
 	_last_cell = NO_CELL
@@ -144,8 +149,14 @@ func stroke_to(cell: Vector2i, erase: bool) -> void:
 
 func end_stroke() -> void:
 	if _stroke_snapshot != null and _stroke_changed:
-		_commit(_stroke_snapshot)
+		var snapshot: LevelData = _stroke_snapshot
+		_stroke_snapshot = null
+		_stroke_changed = false
+		_last_cell = NO_CELL
+		_commit(snapshot)
+		return
 	_stroke_snapshot = null
+	_stroke_changed = false
 	_last_cell = NO_CELL
 
 
@@ -232,6 +243,7 @@ func clear() -> void:
 
 
 func undo() -> void:
+	end_stroke()
 	if _undo.is_empty():
 		return
 	_redo.append(level)
@@ -242,6 +254,7 @@ func undo() -> void:
 
 
 func redo() -> void:
+	end_stroke()
 	if _redo.is_empty():
 		return
 	_undo.append(level)
@@ -252,6 +265,30 @@ func redo() -> void:
 
 
 # --- Internals -------------------------------------------------------------------------
+
+
+## Pick the material under the pointer without changing the document.
+func pick_brush(cell: Vector2i) -> void:
+	if not level.grid.in_bounds(cell.y, cell.x):
+		return
+	if cell == level.start_cell:
+		set_brush(Brush.PLAYER)
+		return
+	var tile: int = level.grid.get_cell(cell.y, cell.x)
+	if Tile.is_spike(tile):
+		for direction: int in 4:
+			if spike_tile(direction as SpikeDirection) == tile:
+				set_brush(Brush.SPIKES)
+				set_spike_direction(direction as SpikeDirection)
+				return
+	var mapping: Dictionary[int, int] = {
+		Tile.AIR: Brush.ERASER, Tile.DIRT: Brush.DIRT, Tile.DIRT_EATEN_1: Brush.DIRT,
+		Tile.DIRT_EATEN_2: Brush.DIRT, Tile.STEEL: Brush.STEEL, Tile.BOUNCY: Brush.BOUNCY,
+		Tile.BOUNCY_EATEN_1: Brush.BOUNCY, Tile.BOUNCY_EATEN_2: Brush.BOUNCY,
+		Tile.GLASS: Brush.GLASS, Tile.VOID: Brush.VOID, Tile.GOAL: Brush.GOAL,
+	}
+	if mapping.has(tile):
+		set_brush(mapping[tile] as Brush)
 
 func _apply(cell: Vector2i, erase: bool) -> void:
 	var grid: LevelGrid = level.grid

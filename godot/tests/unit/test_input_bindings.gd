@@ -96,6 +96,27 @@ func test_normalized_strips_event_state() -> void:
 	check_eq(key.physical_keycode, KEY_Q)
 
 
+func test_apply_to_input_map_includes_wasd_arrows_and_space() -> void:
+	InputBindings.apply_to_input_map(InputBindings.JUMP, InputBindings.make_key(KEY_W))
+	var events: Array[InputEvent] = InputMap.action_get_events(InputBindings.JUMP)
+	var keycodes: Array[Key] = []
+	for e: InputEvent in events:
+		if e is InputEventKey:
+			keycodes.append((e as InputEventKey).physical_keycode)
+	check(keycodes.has(KEY_W), "jump has W")
+	check(keycodes.has(KEY_UP), "jump has Up Arrow")
+	check(keycodes.has(KEY_SPACE), "jump has Space")
+
+	InputBindings.apply_to_input_map(InputBindings.MOVE_LEFT, InputBindings.make_key(KEY_A))
+	events = InputMap.action_get_events(InputBindings.MOVE_LEFT)
+	keycodes.clear()
+	for e: InputEvent in events:
+		if e is InputEventKey:
+			keycodes.append((e as InputEventKey).physical_keycode)
+	check(keycodes.has(KEY_A), "left has A")
+	check(keycodes.has(KEY_LEFT), "left has Left Arrow")
+
+
 func _check_key(event: InputEvent, expected: Key) -> void:
 	check(event is InputEventKey, "expected a key")
 	if event is InputEventKey:

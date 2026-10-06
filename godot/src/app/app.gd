@@ -12,7 +12,7 @@ const EDITOR_SCREEN: PackedScene = preload("res://src/editor/editor_screen.tscn"
 const FADE_SEC: float = 0.14
 
 ## What the level select was showing, restored when the player comes back.
-var _menu_world: int = 1
+var _menu_world: int = WorldCatalog.ORDER[0]
 var _menu_custom_tab: bool = false
 var _screen: Control
 ## The editor, kept alive (hidden) while its level is being test-played.
@@ -102,8 +102,9 @@ func edit_slot(slot: int) -> void:
 # --- Flow between screens ------------------------------------------------------------
 
 func _on_official_level_completed(slot: int) -> void:
-	if slot < GameConstants.SLOT_COUNT:
-		play_official(slot + 1)
+	var next_slot: int = WorldCatalog.next_slot(slot)
+	if next_slot != 0:
+		play_official(next_slot)
 		_toasts.show_message("挑戰成功！前往下一關")
 	else:
 		show_menu()

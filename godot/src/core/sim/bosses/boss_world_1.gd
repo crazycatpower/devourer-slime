@@ -224,11 +224,7 @@ static func _update_intro(sim: GameSim) -> void:
 	if boss.intro_timer % 2 == 0:
 		BossSystem.spawn_converging_spark(sim, 120.0, 25.0, Palette.AMBER_600, 3.0, 4.0)
 	if boss.intro_timer <= 0:
-		boss.state = BossState.State.FALLING
-		boss.vy = 2.0
-		sim.camera.shake = 30.0
-		sim.play(Sfx.Id.BOUNCE)
-		sim.spawn_particles(boss.center_x(), boss.center_y(), Palette.AMBER_600, 40, 7.0)
+		BossSystem.finish_intro(sim, 30.0, Palette.AMBER_600, 40, 7.0)
 
 
 ## The opening drop passes through eatable blocks (absorbing them on the way)

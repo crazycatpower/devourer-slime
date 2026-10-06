@@ -14,7 +14,7 @@ config/name="Devourer Slime"
 config/name_localized={
 "zh_TW": "史萊姆方塊吞噬者"
 }
-config/description="Eat blocks, spit them back out, and bounce through 5 worlds. Godot port of the Slime Block Eater web game."
+config/description="Eat blocks, spit them back out, and bounce through 5 worlds."
 config/version="0.2.0"
 run/main_scene="res://src/app/app.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")

@@ -15,6 +15,12 @@ func _paint(p: Painter, sim: GameSim) -> void:
 
 func _paint_lurking_warning(p: Painter, sim: GameSim) -> void:
 	var boss: BossState = sim.boss
+	if sim.boss_kind == BossState.Kind.STEEL_CHASE:
+		if boss.active and not boss.dead and boss.x + boss.w < view.camera_position.x:
+			var edge_x: float = view.camera_position.x + 110.0
+			var edge_y: float = view.camera_position.y + 46.0
+			p.text("← 壓碎機逼近・向右逃離", edge_x, edge_y, 12.0, Palette.AMBER_400, true)
+		return
 	if not boss.active or boss.state != BossState.State.SUSPENDED:
 		return
 	if absf(BossSystem.player_dx(sim)) >= LURK_WARNING_DISTANCE:
@@ -70,12 +76,17 @@ func _paint_eat_target(p: Painter, sim: GameSim) -> void:
 		x = boss_pos.x + float(c - boss.min_c) * Tile.SIZE
 		y = boss_pos.y + float(r - boss.min_r) * Tile.SIZE
 
-	if player.eating_progress > 0.0:
-		var size: float = Tile.SIZE * (1.0 - minf(player.eating_progress, 1.0))
-		var inset: float = (Tile.SIZE - size) / 2.0
-		var color: Color = Palette.AMBER_600
-		if Tile.is_bouncy(type) or type == Tile.GOAL:
-			color = Palette.PINK_500
-		p.fill_rect(x, y, Tile.SIZE, Tile.SIZE, Palette.SLATE_900)
-		p.fill_rect(x + inset, y + inset, size, size, color)
-	p.stroke_rect(x, y, Tile.SIZE, Tile.SIZE, Palette.GREEN_500, 3.0)
+	if player.eating_progress > 0.0 and is_boss_cell:
+		var progress: float = clampf(player.eating_progress, 0.0, 1.0)
+		var pull: float = progress * progress * (3.0 - 2.0 * progress)
+		var source: Vector2 = Vector2(x, y) + Vector2.ONE * Tile.SIZE * 0.5
+		var body: Vector2 = view.tween_position(player.prev_x, player.prev_y, player.x, player.y) + Vector2(player.w, player.h) * 0.5
+		var center: Vector2 = source.lerp(body, pull)
+		var shrink: float = lerpf(1.0, 0.5, pull)
+		p.push()
+		p.translate(center.x, center.y)
+		p.scale(shrink, shrink)
+		TilePainter.draw(p, type, -Tile.SIZE * 0.5, -Tile.SIZE * 0.5, view.time_ms)
+		p.pop()
+	if player.eating_progress <= 0.0:
+		p.stroke_rect(x, y, Tile.SIZE, Tile.SIZE, Palette.GREEN_500, 3.0)

@@ -2,8 +2,8 @@ class_name PlayerSystem
 extends RefCounted
 ## Player movement, jumping, swallowing and spitting.
 
-## Swallowing a block takes 8 ticks of holding the eat button.
-const EAT_RATE: float = 2.0 / 15.0
+## Swallowing a block takes 24 ticks of holding the eat button.
+const EAT_RATE: float = 1.0 / 24.0
 ## A swallow is abandoned when the player drifts further than this from it.
 const EAT_MAX_DISTANCE: float = 85.0
 ## A jump press is remembered for this many ticks.
@@ -64,6 +64,10 @@ static func update(sim: GameSim) -> void:
 	):
 		player.vx = 0.0
 		player.recoil_vx = 0.0
+		if sim.boss_kind == BossState.Kind.STEEL_CHASE:
+			player.vy = 0.0
+			player.in_bullet_time = false
+			return
 		player.vy += 0.4
 		player.in_bullet_time = false
 		Collision.solve_y(sim)
@@ -96,9 +100,9 @@ static func update(sim: GameSim) -> void:
 	_apply_horizontal_movement(player, move_left, move_right)
 	_carry_recoil(player)
 
-	player.vy += GameConstants.GRAVITY
+	player.vy += GameConstants.GRAVITY * GameConstants.AIR_STEP
 	if player.vy > TERMINAL_SOFT_SPEED:
-		player.vy -= (player.vy - TERMINAL_SOFT_SPEED) * 0.15
+		player.vy -= (player.vy - TERMINAL_SOFT_SPEED) * 0.15 * GameConstants.AIR_STEP
 
 	_update_jump(sim)
 	_update_eating(sim, aim)
@@ -106,9 +110,9 @@ static func update(sim: GameSim) -> void:
 
 	if player.grounded:
 		player.fall_start_y = player.y
-	elif player.vy < 0.0:
-		# While rising, only ever push the fall origin lower.
-		player.fall_start_y = maxf(player.fall_start_y, player.y)
+	elif player.vy < 0.0 and player.y < player.fall_start_y:
+		# When rising higher than the previous apex/origin, update the fall origin.
+		player.fall_start_y = player.y
 
 	Collision.solve_x(sim)
 	Collision.solve_y(sim)
@@ -122,7 +126,17 @@ static func update(sim: GameSim) -> void:
 		player.scale_y = 1.0 + stretch
 
 	if not player.grounded and absf(player.vy) > 10.0 and sim.rng.next_float() < 0.3:
-		sim.spawn_particles(player.center_x(), player.center_y(), Palette.GREEN_400, 1, 0.5)
+		var trail_color: Color = Palette.GREEN_400
+		if player.has_block:
+			if Tile.is_bouncy(player.carried_block_type):
+				trail_color = Palette.PINK_400
+			elif player.carried_block_type == Tile.GLASS:
+				trail_color = Palette.CYAN_400
+			elif player.carried_block_type == Tile.STEEL:
+				trail_color = Palette.SLATE_400
+			else:
+				trail_color = Palette.AMBER_400
+		sim.spawn_particles(player.center_x(), player.center_y(), trail_color, 1, 0.5)
 
 	player.scale_x += (1.0 - player.scale_x) * 0.15
 	player.scale_y += (1.0 - player.scale_y) * 0.15
@@ -135,13 +149,23 @@ static func _apply_horizontal_movement(
 		return  # Keep the bounce velocity.
 	var max_speed: float = GameConstants.MAX_SPEED
 	if player.has_block:
-		max_speed *= CARRY_SPEED_FACTOR
+		if (
+			player.carried_block_type == Tile.DIRT
+			or player.carried_block_type == Tile.DIRT_EATEN_1
+			or player.carried_block_type == Tile.DIRT_EATEN_2
+		):
+			max_speed *= 0.8
+		elif Tile.is_bouncy(player.carried_block_type):
+			max_speed *= 1.0  # Bouncy block is light and does not slow the slime
+		else:
+			max_speed *= CARRY_SPEED_FACTOR
+	var old_control: float = player.vx - player.recoil_vx
 	if move_left:
 		player.vx = -max_speed
 	elif move_right:
 		player.vx = max_speed
 	else:
-		if player.grounded:
+		if player.grounded and absf(old_control) < 1.8:
 			# A gentle pull toward the tile centre helps line up with blocks.
 			var cx: float = player.center_x()
 			var tile_center: float = floorf(cx / Tile.SIZE) * Tile.SIZE + Tile.SIZE / 2.0
@@ -149,17 +173,23 @@ static func _apply_horizontal_movement(
 			if absf(diff_x) < 6.0:
 				player.x += diff_x * 0.25
 		player.vx = 0.0
+	var acceleration: float = 1.4 if player.grounded else 1.1
+	if not move_left and not move_right:
+		acceleration = 1.8 if player.grounded else 1.3
+	elif old_control * player.vx < 0.0:
+		acceleration = 2.0
+	player.vx = move_toward(old_control, player.vx, acceleration)
 
 
-## Walking sets the horizontal speed outright every tick, so the sideways
-## kick of a spit is tracked separately and added on top while it fades.
+## Walking smooths the control velocity after removing the previous kick.
+## The sideways spit recoil is added separately while it fades.
 static func _carry_recoil(player: PlayerState) -> void:
 	if player.recoil_vx == 0.0:
 		return
 	if player.wall_bounce_timer > 0 or player.grounded:
 		player.recoil_vx = 0.0
 		return
-	player.recoil_vx *= RECOIL_CARRY
+	player.recoil_vx *= pow(RECOIL_CARRY, GameConstants.AIR_STEP)
 	if absf(player.recoil_vx) < RECOIL_CUTOFF:
 		player.recoil_vx = 0.0
 	player.vx += player.recoil_vx
@@ -181,13 +211,22 @@ static func _update_jump(sim: GameSim) -> void:
 	elif player.coyote_timer > 0:
 		player.coyote_timer -= 1
 
+	var jump_force: float = GameConstants.JUMP_FORCE
+	var is_dirt: bool = player.has_block and (
+		player.carried_block_type == Tile.DIRT
+		or player.carried_block_type == Tile.DIRT_EATEN_1
+		or player.carried_block_type == Tile.DIRT_EATEN_2
+	)
+	if is_dirt:
+		jump_force *= 0.986  # 泥土方塊沉重，跳躍高度略為降低（保持原關卡解法相容性）
+
 	# Nor does a jump replace a stronger upward speed: right after a big
 	# bounce it would only cut it down. The press stays buffered instead.
 	if (
 		player.jump_buffer > 0 and player.coyote_timer > 0
-		and player.vy > -GameConstants.JUMP_FORCE
+		and player.vy > -jump_force
 	):
-		player.vy = -GameConstants.JUMP_FORCE
+		player.vy = -jump_force
 		player.grounded = false
 		player.jump_buffer = 0
 		player.coyote_timer = 0
@@ -254,14 +293,9 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 	if is_boss:
 		tx = boss.cell_x(tc) + Tile.SIZE / 2.0
 		ty = boss.cell_y(tr) + Tile.SIZE / 2.0
-	var ddx: float = player.center_x() - tx
-	var ddy: float = player.center_y() - ty
-	if sqrt(ddx * ddx + ddy * ddy) > EAT_MAX_DISTANCE:
-		player.clear_eating()
-		return
 
 	player.eating_progress += EAT_RATE
-	if player.eating_progress < 1.0:
+	if player.eating_progress < 1.0 - 0.000001:
 		return
 
 	# The block is swallowed.
@@ -329,18 +363,8 @@ static func _update_shooting(sim: GameSim, aim: Aim) -> void:
 		player.in_bullet_time = false
 
 
-static func _fire(sim: GameSim, aim: Aim) -> void:
-	var player: PlayerState = sim.player
-	var level: LevelGrid = sim.level
-	player.in_bullet_time = false
-	var block_type: int = player.carried_block_type if player.carried_block_type != 0 else Tile.DIRT
-	var eaten_count: int = (
-		player.carried_block_eaten_count if player.carried_block_eaten_count != 0 else 1
-	)
-	player.has_block = false
-	player.carried_block_type = Tile.AIR
-	player.carried_block_eaten_count = 0
-
+## Shared by actual fire and trajectory preview; does not change the world.
+static func shot_origin(player: PlayerState, level: LevelGrid, aim: Aim) -> Vector2:
 	var bx: float = player.x + aim.x * Tile.SIZE * MUZZLE_DISTANCE
 	var by: float = player.y + aim.y * Tile.SIZE * MUZZLE_DISTANCE
 
@@ -363,6 +387,22 @@ static func _fire(sim: GameSim, aim: Aim) -> void:
 	if backtracked:
 		bx = start_rx - 20.0
 		by = start_ry - 20.0
+	return Vector2(bx, by)
+
+
+static func _fire(sim: GameSim, aim: Aim) -> void:
+	var player: PlayerState = sim.player
+	player.in_bullet_time = false
+	var block_type: int = player.carried_block_type if player.carried_block_type != 0 else Tile.DIRT
+	var eaten_count: int = (
+		player.carried_block_eaten_count if player.carried_block_eaten_count != 0 else 1
+	)
+	player.has_block = false
+	player.carried_block_type = Tile.AIR
+	player.carried_block_eaten_count = 0
+	var origin: Vector2 = shot_origin(player, sim.level, aim)
+	var bx: float = origin.x
+	var by: float = origin.y
 
 	var projectile: SimProjectile = SimProjectile.new()
 	projectile.x = bx

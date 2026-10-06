@@ -2,8 +2,8 @@ class_name LevelCodec
 extends RefCounted
 ## Converts between the text level format and [LevelData].
 ##
-## The text format is the web version's: an array of strings with one
-## character per tile. Keeping it lets level JSON move between both versions.
+## The text format is an array of strings with one
+## character per tile, shared by built-in and custom levels.
 
 const CHAR_AIR: String = "."
 const CHAR_PLAYER: String = "P"

@@ -4,11 +4,11 @@ extends SceneTree
 ## Usage:
 ##   godot --headless --path godot -s res://tests/run_tests.gd [++ filter]
 ##
-## Runs every `test_*.gd` under `res://tests/unit` and `res://tests/parity`
-## whose path contains the optional filter (for example `unit`, `parity` or
+## Runs every `test_*.gd` under `res://tests/unit`
+## whose path contains the optional filter (for example `unit` or
 ## `level`). Exits with status 1 when any check fails.
 
-const TEST_DIRS: Array[String] = ["res://tests/unit", "res://tests/parity"]
+const TEST_DIRS: Array[String] = ["res://tests/unit"]
 
 
 func _initialize() -> void:

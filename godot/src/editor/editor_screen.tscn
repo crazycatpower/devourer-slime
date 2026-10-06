@@ -165,11 +165,13 @@ script = ExtResource("3_view")
 layout_mode = 2
 theme_type_variation = &"CaptionLabel"
 theme_override_font_sizes/font_size = 16
-text = "左鍵繪製 · 右鍵擦除 · 中鍵拖曳或方向鍵（W A S D）移動視角 · Ctrl+Z 復原 · Ctrl+Y 重做 · Ctrl+S 儲存"
+text = "左鍵畫 · 右鍵擦 · 滾輪縮放 · 空白＋拖曳 · Alt 取材"
+tooltip_text = "1–9 切換筆刷 · R 旋轉尖刺 · Ctrl+C 框選複製 · Ctrl+V 貼上 · Ctrl+Z 復原 · Ctrl+S 儲存"
+autowrap_mode = 2
 horizontal_alignment = 1
 
 [node name="Sidebar" type="PanelContainer" parent="VBox/Body/HBox"]
-custom_minimum_size = Vector2(520, 0)
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 theme_type_variation = &"BarPanel"
 
@@ -265,12 +267,16 @@ focus_mode = 0
 theme_type_variation = &"ChipButton"
 text = "−"
 
-[node name="WidthValue" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+[node name="WidthValue" type="LineEdit" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "40"
-horizontal_alignment = 1
+alignment = 1
+max_length = 3
+context_menu_enabled = false
+select_all_on_focus = true
 
 [node name="WidthPlus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
 unique_name_in_owner = true
@@ -294,12 +300,16 @@ focus_mode = 0
 theme_type_variation = &"ChipButton"
 text = "−"
 
-[node name="HeightValue" type="Label" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
+[node name="HeightValue" type="LineEdit" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "15"
-horizontal_alignment = 1
+alignment = 1
+max_length = 3
+context_menu_enabled = false
+select_all_on_focus = true
 
 [node name="HeightPlus" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox/SizePanel/VBox/Steppers"]
 unique_name_in_owner = true
@@ -380,13 +390,6 @@ layout_mode = 2
 focus_mode = 0
 theme_type_variation = &"IndigoButton"
 text = "儲存關卡 SAVE"
-
-[node name="RevertButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-theme_type_variation = &"ChipButton"
-text = "還原為內建關卡"
 
 [node name="ClearButton" type="Button" parent="VBox/Body/HBox/Sidebar/Scroll/VBox"]
 unique_name_in_owner = true

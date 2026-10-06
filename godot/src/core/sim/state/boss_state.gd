@@ -6,7 +6,7 @@ extends RefCounted
 ## been fed. World 1 uses a large grid that grows as the boss absorbs dirt;
 ## the other bosses use a 3x3 grid around a goal core.
 
-enum Kind { NONE, WORLD_1, WORLD_2, WORLD_3, WORLD_4 }
+enum Kind { NONE, WORLD_1, WORLD_2, WORLD_3, WORLD_4, STEEL_CHASE }
 enum State { SUSPENDED, INTRO, FALLING, ACTIVE, JUMPING, CHARGING, PRE_JUMP }
 enum JumpType { NORMAL, BIG, SMALL, PRECISION, COMBO, MEGA }
 
@@ -52,6 +52,7 @@ var center_c: int = 1
 var cooldown: int = 120
 var max_cooldown: int = 120
 var intro_timer: int = 0
+var intro_duration: int = 0
 ## The player is held in place during the entrance that opens the fight, but
 ## not when a boss comes back in the middle of it.
 var intro_freezes_player: bool = true

@@ -1,0 +1,121 @@
+{
+  "generator": "built-in image_gen",
+  "version": 1,
+  "usage": "Decorative assets only. Not yet placed in gameplay. Theme numbers are art-direction labels, not saved slot IDs.",
+  "themes": [
+    {
+      "id": "world1-culture",
+      "name": "培養室",
+      "background": "world1-culture-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, ideally 1536x1024. Theme: Abandoned biological culture laboratory, desaturated teal and aged ivory, dormant cylindrical culture vessels behind glass, empty sample racks, old ceramic wall panels, fine trailing roots, drained nutrient plumbing. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Beautiful restrained atmospheric depth through value grouping.",
+      "props": [
+        "empty small culture jar",
+        "stoppered sample bottle cluster",
+        "wall nutrient pressure gauge",
+        "rolled specimen pouch",
+        "detached glass vessel cap",
+        "small empty specimen rack",
+        "ceramic nutrient tap",
+        "bundled thin feeding tubes",
+        "faded blank specimen tag plate"
+      ],
+      "prop_sheet": "world1-culture-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned biological culture laboratory, desaturated teal and aged ivory, dormant cylindrical culture vessels behind glass, empty sample racks, old ceramic wall panels, fine trailing roots, drained nutrient plumbing. Objects in reading order: empty small culture jar; stoppered sample bottle cluster; wall nutrient pressure gauge; rolled specimen pouch; detached glass vessel cap; small empty specimen rack; ceramic nutrient tap; bundled thin feeding tubes; faded blank specimen tag plate. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    },
+    {
+      "id": "world2-materials",
+      "name": "材料測試區",
+      "background": "world2-materials-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, 1536x1024. Theme: Abandoned polymer materials testing laboratory, muted dusty rose and slate gray, distant compression test instruments, closed observation cabinets, rubber hoses and old measuring equipment. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters or creatures, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Restrained atmospheric depth through value grouping. Match cohesive pixel-art abandoned biotech factory art direction, crisp pixel clusters rather than fine noisy texture.",
+      "props": [
+        "small rubber hose coil",
+        "analog strain gauge",
+        "polymer sample spool",
+        "worn padded instrument case",
+        "wall caliper holder",
+        "three capped reagent ampoules",
+        "detached pressure bellows",
+        "crumpled rubber glove",
+        "blank cracked calibration plaque"
+      ],
+      "prop_sheet": "world2-materials-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned polymer materials testing laboratory, muted dusty rose and slate gray, distant compression test instruments, closed observation cabinets, rubber hoses and old measuring equipment. Objects in reading order: small rubber hose coil; analog strain gauge; polymer sample spool; worn padded instrument case; wall caliper holder; three capped reagent ampoules; detached pressure bellows; crumpled rubber glove; blank cracked calibration plaque. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    },
+    {
+      "id": "world3-recycling",
+      "name": "回收加工區",
+      "background": "world3-recycling-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, 1536x1024. Theme: Abandoned biological recycling processing hall, muted oxidized copper, ochre and deep petrol blue, distant enclosed sorting machinery, disused chutes, corroded exhaust ducts, stains and age. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters or creatures, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Restrained atmospheric depth through value grouping. Match cohesive pixel-art abandoned biotech factory art direction, crisp pixel clusters rather than fine noisy texture.",
+      "props": [
+        "short corroded elbow pipe",
+        "small filter cartridge",
+        "dented empty oil can",
+        "wall maintenance gauge",
+        "tied cable scrap bundle",
+        "detached ventilation grille",
+        "folded dirty maintenance rag",
+        "small crushed metal bottle",
+        "disconnected motor casing"
+      ],
+      "prop_sheet": "world3-recycling-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned biological recycling processing hall, muted oxidized copper, ochre and deep petrol blue, distant enclosed sorting machinery, disused chutes, corroded exhaust ducts, stains and age. Objects in reading order: short corroded elbow pipe; small filter cartridge; dented empty oil can; wall maintenance gauge; tied cable scrap bundle; detached ventilation grille; folded dirty maintenance rag; small crushed metal bottle; disconnected motor casing. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    },
+    {
+      "id": "world4-energy",
+      "name": "能源核心",
+      "background": "world4-energy-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, 1536x1024. Theme: Abandoned bioelectric energy core, muted indigo blue and restrained cyan, dormant tall reactor housings and thick shielded conduits deep in the wall, cold ceramic insulation, tiny dim status accents, no intense energy beams. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters or creatures, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Restrained atmospheric depth through value grouping. Match cohesive pixel-art abandoned biotech factory art direction, crisp pixel clusters rather than fine noisy texture.",
+      "props": [
+        "small ceramic insulator",
+        "disconnected capacitor canister",
+        "coiled insulated cable",
+        "wall voltage meter",
+        "cracked cooling valve",
+        "dim sealed power cell",
+        "detached connector cluster",
+        "small coolant flask",
+        "blank fuse cover plate"
+      ],
+      "prop_sheet": "world4-energy-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned bioelectric energy core, muted indigo blue and restrained cyan, dormant tall reactor housings and thick shielded conduits deep in the wall, cold ceramic insulation, tiny dim status accents, no intense energy beams. Objects in reading order: small ceramic insulator; disconnected capacitor canister; coiled insulated cable; wall voltage meter; cracked cooling valve; dim sealed power cell; detached connector cluster; small coolant flask; blank fuse cover plate. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    },
+    {
+      "id": "world5-quarantine",
+      "name": "封鎖出口",
+      "background": "world5-quarantine-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, 1536x1024. Theme: Abandoned quarantine exit and containment transfer sector, muted burgundy, aged ivory and charcoal, distant sealed specimen transfer chambers, layered bulkhead walls, obsolete inspection devices, faded containment markings without words. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters or creatures, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Restrained atmospheric depth through value grouping. Match cohesive pixel-art abandoned biotech factory art direction, crisp pixel clusters rather than fine noisy texture.",
+      "props": [
+        "broken inspection camera",
+        "wall intercom housing",
+        "empty decontamination spray bottle",
+        "folded containment cloth",
+        "detached door actuator",
+        "cracked status indicator panel",
+        "wall access sensor",
+        "small sealant cartridge",
+        "blank faded quarantine placard"
+      ],
+      "prop_sheet": "world5-quarantine-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned quarantine exit and containment transfer sector, muted burgundy, aged ivory and charcoal, distant sealed specimen transfer chambers, layered bulkhead walls, obsolete inspection devices, faded containment markings without words. Objects in reading order: broken inspection camera; wall intercom housing; empty decontamination spray bottle; folded containment cloth; detached door actuator; cracked status indicator panel; wall access sensor; small sealant cartridge; blank faded quarantine placard. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    },
+    {
+      "id": "common-maintenance",
+      "name": "通用維修區",
+      "background": "common-maintenance-background.png",
+      "background_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: one finished wide landscape background plate, 1536x1024. Theme: Abandoned biological factory utility maintenance interior, subdued blue gray, oxidized olive and old ivory, broad quiet industrial wall recesses, distant utility tanks, overhead pipes, aged conduits, no world-specific centerpiece. Composition: flat side-on elevation suitable behind gameplay, NOT a perspective corridor with a vanishing-point floor. Large quiet dark open central 65 percent, softly separated distant architectural layers. Detailed equipment concentrated at far lateral edges and upper perimeter; center contains only low contrast recessed wall shapes. Background only, edge-to-edge artwork, no borders. Foreground gameplay will be added by engine. No foreground floor, no platforms, no tile grid, no characters or creatures, no text, no logos, no arrows, no particle specks, no fog overlay, no bloom. Any indicator lamps very small and dim. Restrained atmospheric depth through value grouping. Match cohesive pixel-art abandoned biotech factory art direction, crisp pixel clusters rather than fine noisy texture.",
+      "props": [
+        "rusted small pipe elbow",
+        "analog wall gauge",
+        "bundled hanging wires",
+        "small vent cover",
+        "dented maintenance tin",
+        "capped glass bottle",
+        "detached valve wheel",
+        "blank worn wall plate",
+        "short flexible hose coil"
+      ],
+      "prop_sheet": "common-maintenance-props.png",
+      "props_prompt": "Use case: stylized-concept. Production raster asset for a 2D side-view pixel-art platform game about a small green slime escaping an abandoned biological factory. Cohesive premium hand-crafted pixel art, deliberate crisp square pixel clusters, restrained 16-bit palette, consistent upper-left light, subtle worn industrial materials, no painterly strokes, no smooth 3D rendering, no photographic textures. Asset type: transparent decoration sprite sheet, square 1024x1024, exactly NINE isolated small props arranged in a clean evenly spaced 3 columns by 3 rows grid. Theme/palette: Abandoned biological factory utility maintenance interior, subdued blue gray, oxidized olive and old ivory, broad quiet industrial wall recesses, distant utility tanks, overhead pipes, aged conduits, no world-specific centerpiece. Objects in reading order: rusted small pipe elbow; analog wall gauge; bundled hanging wires; small vent cover; dented maintenance tin; capped glass bottle; detached valve wheel; blank worn wall plate; short flexible hose coil. Every object entirely inside its own equal square cell with at least 40px transparent padding; no object touches another or the image edge. All props are modest decorative background set dressing, inert, unlit or barely lit. Straight-on side-view/front elevation, consistent scale of pixel clusters, clear compact silhouettes, detailed but readable when reduced to 32-64 pixels tall. Preserve physical material shapes. NO rooms, NO scenery, NO floors or platforms, NO tile blocks, NO weapons, spikes, pickups, characters, particle specks, glow halos, text, letters, numbers, captions, logos, grid lines, frames or checkerboard pattern. Genuine transparent alpha around and between objects, no background color, no ground shadows. Sheet is for cutting each isolated prop into a separate PNG."
+    }
+  ]
+}
