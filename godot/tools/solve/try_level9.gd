@@ -32,7 +32,7 @@ func _run() -> void:
 	var sim: Recorder = Recorder.new()
 	sim.load_level(9,LevelLibrary.built_in_level(9),BossState.Kind.NONE)
 	sim.bullet_time_enabled=false
-	var script: GDScript=load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var script: GDScript=load("res://tests/unit/test_world5_levels.gd") as GDScript
 	controller=script.new()
 	for i: int in 80:
 		sim.step(SimInput.new())

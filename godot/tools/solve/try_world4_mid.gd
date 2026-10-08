@@ -12,8 +12,8 @@ class Recorder:
 func _initialize() -> void:
 	_run.call_deferred()
 func _run() -> void:
-	var routes: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world3_mid_solutions.json"))
-	var script: GDScript=load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var routes: Dictionary=JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world4_mid_solutions.json"))
+	var script: GDScript=load("res://tests/unit/test_world5_levels.gd") as GDScript
 	var controller: RefCounted=script.new()
 	var failed: bool=false
 	for slot: int in [24,25,26,27]:

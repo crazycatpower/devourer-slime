@@ -1,6 +1,6 @@
 class_name ReorgAnimCell
 extends RefCounted
-## One block sliding to its new grid cell while the World 1 boss rearranges.
+## One block sliding to its new grid cell while the mud golem rearranges.
 
 var from_r: int = 0
 var from_c: int = 0

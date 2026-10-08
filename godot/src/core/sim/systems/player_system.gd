@@ -3,6 +3,9 @@ extends RefCounted
 ## Player movement, jumping, swallowing and spitting.
 
 ## Swallowing a block takes 24 ticks of holding the eat button.
+## How far into a solid tile the body has to be pushed, on every side, before
+## it counts as crushed. Grazing a wall or a corner never does.
+const CRUSH_DEPTH: float = 6.0
 const EAT_RATE: float = 1.0 / 24.0
 ## A swallow is abandoned when the player drifts further than this from it.
 const EAT_MAX_DISTANCE: float = 85.0
@@ -110,14 +113,17 @@ static func update(sim: GameSim) -> void:
 
 	if player.grounded:
 		player.fall_start_y = player.y
-	elif player.vy < 0.0 and player.y < player.fall_start_y:
+		player.bounce_slack = 0.0
+	elif player.vy < 0.0 and player.y < player.fall_start_y - player.bounce_slack:
 		# When rising higher than the previous apex/origin, update the fall origin.
 		player.fall_start_y = player.y
+		player.bounce_slack = 0.0
 
 	Collision.solve_x(sim)
 	Collision.solve_y(sim)
 
 	_check_hazards_and_goal(sim)
+	_check_crushed(sim)
 
 	# Stretch along the vertical velocity while airborne.
 	if not player.grounded and absf(player.scale_y - 1.0) < 0.2:
@@ -301,11 +307,11 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 	# The block is swallowed.
 	if is_boss:
 		boss.set_cell(tr, tc, Tile.AIR)
-		if sim.boss_kind == BossState.Kind.WORLD_1:
+		if sim.boss_kind == BossState.Kind.MUD_GOLEM:
 			if block_type == Tile.GOAL:
-				BossWorld1.kill_and_reveal_goal(sim)
+				BossMudGolem.kill_and_reveal_goal(sim)
 			else:
-				BossWorld1.update_bounds(sim)
+				BossMudGolem.update_bounds(sim)
 	else:
 		level.set_cell(tr, tc, Tile.AIR)
 
@@ -435,6 +441,26 @@ static func _fire(sim: GameSim, aim: Aim) -> void:
 	player.scale_x = 1.5
 	player.scale_y = 0.5
 	sim.spawn_particles(player.center_x(), player.center_y(), Palette.WHITE, 15, 4.0)
+
+
+## Being squeezed into a wall kills. Ordinary collision keeps the body out of
+## solid tiles, and a single block appearing under the player just lifts them
+## onto it. This is what is left: the body is still inside a tile after being
+## pushed out, because there was nowhere to go. A wall rising around the
+## player, or a boss shoving them into the terrain, does that.
+static func _check_crushed(sim: GameSim) -> void:
+	var player: PlayerState = sim.player
+	if player.dead or player.won:
+		return
+	var depth: float = CRUSH_DEPTH
+	var buried: Array[SolidBox] = sim.solid_boxes(
+		player.x + depth, player.y + depth, player.w - depth * 2.0, player.h - depth * 2.0
+	)
+	if buried.is_empty() or not sim.kill_player():
+		return
+	sim.spawn_particles(player.center_x(), player.center_y(), Palette.GREEN_500, 40, 8.0)
+	sim.add_shake(12.0)
+	sim.play(Sfx.Id.HURT)
 
 
 static func _check_hazards_and_goal(sim: GameSim) -> void:

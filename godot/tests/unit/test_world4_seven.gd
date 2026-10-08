@@ -1,7 +1,7 @@
 extends TestCase
 
 func _route() -> Array:
-	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world3_mid_solutions.json"))
+	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world4_mid_solutions.json"))
 	return routes["37"]
 
 func _new_sim() -> GameSim:
@@ -13,7 +13,7 @@ func _new_sim() -> GameSim:
 	return sim
 
 func _controller() -> RefCounted:
-	var script: GDScript = load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var script: GDScript = load("res://tests/unit/test_world5_levels.gd") as GDScript
 	return script.new()
 
 func test_durability_drives_each_materials_role() -> void:

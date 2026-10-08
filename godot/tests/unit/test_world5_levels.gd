@@ -2,7 +2,7 @@ extends TestCase
 ## End-to-end routes: inputs only, no teleports or terrain edits.
 
 
-func test_world4_stages_are_authored_valid_and_distinct() -> void:
+func test_world5_stages_are_authored_valid_and_distinct() -> void:
 	var hashes: Array[int] = []
 	for slot: int in range(41, 50):
 		check(LevelLibrary.has_authored_layout(slot))
@@ -13,8 +13,8 @@ func test_world4_stages_are_authored_valid_and_distinct() -> void:
 		hashes.append(data.grid.checksum())
 
 
-func test_world4_routes_win_with_and_without_bullet_time() -> void:
-	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world4_solutions.json"))
+func test_world5_routes_win_with_and_without_bullet_time() -> void:
+	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world5_solutions.json"))
 	for enabled: bool in [true, false]:
 		for slot: int in range(41, 50):
 			var sim: GameSim = GameSim.new()
@@ -28,7 +28,7 @@ func test_world4_routes_win_with_and_without_bullet_time() -> void:
 					break
 				_execute(sim, action)
 				if sim.player.dead:
-					print("world4 route death slot=", slot, " action=", action, " x=", sim.player.x, " y=", sim.player.y)
+					print("world5 route death slot=", slot, " action=", action, " x=", sim.player.x, " y=", sim.player.y)
 			check(not sim.player.dead, "slot %d bullet=%s route survives" % [slot, enabled])
 			check(sim.player.won, "slot %d bullet=%s route reaches goal (x=%.1f y=%.1f)" % [slot, enabled, sim.player.x, sim.player.y])
 

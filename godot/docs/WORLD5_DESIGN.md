@@ -1,4 +1,4 @@
-# 第四世界：虛空與吞噬（關卡深度重構）
+# 第五世界：虛空與吞噬（關卡深度重構）
 
 本次依使用者明確要求，依據最新物理與碰撞量測尺度，對官方 31–39 關（4-1 至 4-9）進行系統化深度重做。
 設計全面落實「角色走的路 ✕ 方塊經歷的用途、位置、耐久度 ✕ 雙向去回驗證」七大原則，擺脫單純障礙拉遠拉高的操作堆疊，形成材料先後依賴的解謎機制。原始匯出存檔與第 40 關 Boss 場地保持原樣。
@@ -41,17 +41,17 @@
 
 ## 檔案與相容性
 
-- **關卡生成器**：`godot/tools/build_world4.mjs`。使用純 JS 建構 31–39 關佈局與原生 `SimInput` 操作解法。
-- **整體旅程整合**：`godot/tools/build_campaign.mjs` 自動引入 `build_world4.mjs`，同步輸出 `data/levels/campaign_levels.json` 與 `tests/fixtures/campaign_solutions.json`。
+- **關卡生成器**：`godot/tools/build_world5.mjs`。使用純 JS 建構 41–49 關佈局與原生 `SimInput` 操作解法。
+- **整體旅程整合**：`godot/tools/build_campaign.mjs` 自動引入 `build_world5.mjs`，同步輸出 `data/levels/campaign_levels.json` 與 `tests/fixtures/campaign_solutions.json`。
 - **驗證工具**：
-  - `godot/tools/solve/try_world4.gd`：單關或全世界的逐幀物理重播診斷工具。
-  - `godot/tests/unit/test_world4_levels.gd`：雙重檢驗（開啟／關閉子彈時間）全九關無傳送、無改地形到達終點。
+  - `godot/tools/solve/try_world5.gd`：單關或全世界的逐幀物理重播診斷工具。
+  - `godot/tests/unit/test_world5_levels.gd`：雙重檢驗（開啟／關閉子彈時間）全九關無傳送、無改地形到達終點。
   - `godot/tests/unit/test_campaign_levels.gd`：整合驗證全 50 關卡有效性與操作解法一致性。
 
 ---
 
 ## 自動化測試驗證結果
 
-- **World 4 專案單元測試**（`test_world4_levels.gd`）：2 tests, 81 checks, 全部通過（0 failures）。
+- **World 5 專案單元測試**（`test_world5_levels.gd`）：2 tests, 81 checks, 全部通過（0 failures）。
 - **Campaign 整合測試**（`test_campaign_levels.gd`）：4 tests, 305 checks, 全部通過（0 failures）。
 - 所有 9 個關卡均在原生遊戲輸入環境下驗證了材料的完整生命週期與雙向路徑。

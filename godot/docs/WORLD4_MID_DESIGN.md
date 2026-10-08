@@ -1,6 +1,6 @@
-# 第三世界第 4、5、6、7 關
+# 第四世界第 4、5、6、7 關
 
-本次依使用者指示重做官方 24–27 關。`official_levels.json` 保留原始版本，新增資料由 `world3_mid_levels.json` 覆蓋指定四關；其他前三世界關卡與 Boss 場地保持原樣。
+本次依使用者指示重做官方 34–37 關。`official_levels.json` 保留原始版本，新增資料由 `world4_mid_levels.json` 覆蓋指定四關；其他前四世界關卡與 Boss 場地保持原樣。
 
 玻璃不能吞，吐出的方塊碰到玻璃會消耗並破掉一格。一般跳躍約 150 像素，反衝跳可登上 200 像素高台。低頂部只有六像素活動空間，可跨一格缺口，兩格缺口需要先補一個踏點。普通泥土第一次吐出仍可再吞一次，第二次吐出後再吞會消化。
 
@@ -13,7 +13,7 @@
 
 3-5 在中台懸邊先吃近處橋面，再隔空吃遠處橋面，鋼板不能遮住射線。兩塊回收泥土補在三格缺口的後兩格，剩下一格利用頂頭跳通過。3-4、3-6 的高台沒有現成新補給，要在登台前先吐出材料，登台後從懸邊吃回；先用掉所有材料登台會缺少破壁或補橋工具。所有朝上尖刺的下一格都是鋼板，避免懸空。
 
-重建：`node godot/tools/build_world3_mid.mjs`。解答宏同步寫到 `tests/fixtures/world3_mid_solutions.json`。`try_world3_mid.gd` 用原遊戲物理記錄逐幀操作，`replay_world3_mid.gd ++ --sandbox 24`（或 25、26）在遊戲視窗重播；不傳送、不直接改地形。
+重建：`node godot/tools/build_world4_mid.mjs`。解答宏同步寫到 `tests/fixtures/world4_mid_solutions.json`。`try_world4_mid.gd` 用原遊戲物理記錄逐幀操作，`replay_world4_mid.gd ++ --sandbox 24`（或 25、26）在遊戲視窗重播；不傳送、不直接改地形。
 
 三關已逐一在遊戲視窗到達終點；起始與通關截图位於 `tests/output/level24_attempt` 至 `level26_attempt`。自動測試驗證兩種子彈時間設定下都能過關、3-5 回收同一塊泥土、3-6 補出指定踏點、普通跳躍不能跳過 3-4 高台，以及其他原關卡未改。
 

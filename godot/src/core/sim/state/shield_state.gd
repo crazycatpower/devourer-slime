@@ -1,17 +1,18 @@
 class_name ShieldState
 extends RefCounted
-## One glass shield orbiting the World 3 boss.
+## One glass shield orbiting the glass slime.
 
-enum Mode { ORBIT, DETACHING }
-
-## Ticks a shield glows outside the ring before it launches at the player.
-const DETACH_TICKS: int = 35
+## Ticks a shield flashes and draws back before it is thrown as a bomb.
+const WINDUP_TICKS: int = 45
 
 var active: bool = true
-var mode: Mode = Mode.ORBIT
 var angle_offset: float = 0.0
 var radius: float = BossState.SHIELD_ORBIT_RADIUS
-var detaching_timer: int = 0
 ## World position of the shield centre.
 var cx: float = 0.0
 var cy: float = 0.0
+## Set once the shield has been picked to be thrown: it leaves the orbit,
+## holds [member hold_offset] from the boss centre and counts down.
+var winding_up: bool = false
+var windup_timer: int = 0
+var hold_offset: Vector2 = Vector2.ZERO

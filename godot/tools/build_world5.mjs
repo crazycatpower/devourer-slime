@@ -425,5 +425,5 @@ function room(slot, width, height) {
   l.finish();
 }
 
-writeFileSync(new URL('../data/levels/world4_levels.json', import.meta.url), JSON.stringify({format: 1, slots}, null, 2) + '\n');
-writeFileSync(new URL('../tests/fixtures/world4_solutions.json', import.meta.url), JSON.stringify(solutions, null, 2) + '\n');
+writeFileSync(new URL('../data/levels/world5_levels.json', import.meta.url), JSON.stringify({format: 1, slots}, null, 2) + '\n');
+writeFileSync(new URL('../tests/fixtures/world5_solutions.json', import.meta.url), JSON.stringify(solutions, null, 2) + '\n');

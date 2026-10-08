@@ -9,8 +9,8 @@ func test_upward_spikes_rest_on_steel() -> void:
 					check_eq(grid.get_cell(r + 1, c), Tile.STEEL, "stage %d spike %d,%d has a base" % [slot, r, c])
 
 func test_routes_and_resource_reuse() -> void:
-	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world3_mid_solutions.json"))
-	var script: GDScript = load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world4_mid_solutions.json"))
+	var script: GDScript = load("res://tests/unit/test_world5_levels.gd") as GDScript
 	var controller: RefCounted = script.new()
 	for enabled: bool in [false, true]:
 		for slot: int in [34, 35, 36, 37]:
@@ -42,7 +42,7 @@ func test_other_original_stages_are_preserved() -> void:
 func test_high_platform_requires_more_than_regular_jump() -> void:
 	var sim: GameSim = GameSim.new()
 	sim.load_level(34, LevelLibrary.built_in_level(34), BossState.Kind.NONE)
-	var script: GDScript = load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var script: GDScript = load("res://tests/unit/test_world5_levels.gd") as GDScript
 	var controller: RefCounted = script.new()
 	for i: int in 15:
 		sim.step(SimInput.new())

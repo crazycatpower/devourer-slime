@@ -1,6 +1,6 @@
-class_name BossWorld1
+class_name BossMudGolem
 extends RefCounted
-## World 1 boss: a mud golem made of the blocks it absorbs.
+## The mud golem, boss of the second world: it is made of the blocks it absorbs.
 ##
 ## It drops onto a mound of dirt, swallows it, packs itself into a square and
 ## then leaps at the player. Any eatable block it touches joins its body. The
@@ -69,7 +69,7 @@ static func arrange_grid_to_square(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
 	var n: int = boss.grid_size
-	var center: int = BossState.WORLD_1_CENTER
+	var center: int = BossState.MUD_GOLEM_CENTER
 
 	var is_initial: bool = not boss.has_initialized_reorg_grid
 	if is_initial:

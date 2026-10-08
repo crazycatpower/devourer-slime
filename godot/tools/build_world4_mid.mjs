@@ -1,4 +1,4 @@
-// User commissioned World 3 stages 4–7. Preserve the original archive.
+// User commissioned World 4 stages 4–7. Preserve the original archive.
 import {writeFileSync} from 'node:fs';
 const slots={},solutions={};
 function room(slot,w,h){
@@ -76,5 +76,5 @@ function room(slot,w,h){
  l.move('walk',16.325);l.use('shoot',12,16);
  l.move('walk',16);l.move('walk',16);l.finish();
 }
-writeFileSync(new URL('../data/levels/world3_mid_levels.json',import.meta.url),JSON.stringify({format:1,slots},null,2)+'\n');
-writeFileSync(new URL('../tests/fixtures/world3_mid_solutions.json',import.meta.url),JSON.stringify(solutions,null,2)+'\n');
+writeFileSync(new URL('../data/levels/world4_mid_levels.json',import.meta.url),JSON.stringify({format:1,slots},null,2)+'\n');
+writeFileSync(new URL('../tests/fixtures/world4_mid_solutions.json',import.meta.url),JSON.stringify(solutions,null,2)+'\n');

@@ -70,10 +70,10 @@ func test_boss_contacts_in_preview_do_not_consume_shields_or_blocks() -> void:
 		sim.boss.state = BossState.State.ACTIVE
 		sim.boss.x = 600.0
 		sim.boss.y = 200.0
-		if sim.boss_kind == BossState.Kind.WORLD_1:
+		if sim.boss_kind == BossState.Kind.MUD_GOLEM:
 			# Its initial body is only the non-colliding core; model one fed cell.
 			sim.boss.set_cell(sim.boss.center_r, sim.boss.center_c + 1, Tile.DIRT)
-			BossWorld1.update_bounds(sim)
+			BossMudGolem.update_bounds(sim)
 		var shot: SimProjectile = SimProjectile.new()
 		var grid: PackedInt32Array = sim.boss.grid.duplicate()
 		var durability: int = sim.boss.durability

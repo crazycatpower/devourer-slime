@@ -112,10 +112,10 @@ func test_library_slots() -> void:
 
 func test_library_boss_slots() -> void:
 	check_eq(LevelLibrary.boss_kind_for_slot(10), BossState.Kind.STEEL_CHASE, "first world ends in a steel chase")
-	check_eq(LevelLibrary.boss_kind_for_slot(20), BossState.Kind.WORLD_1)
-	check_eq(LevelLibrary.boss_kind_for_slot(30), BossState.Kind.WORLD_2)
-	check_eq(LevelLibrary.boss_kind_for_slot(40), BossState.Kind.WORLD_3)
-	check_eq(LevelLibrary.boss_kind_for_slot(50), BossState.Kind.WORLD_4)
+	check_eq(LevelLibrary.boss_kind_for_slot(20), BossState.Kind.MUD_GOLEM)
+	check_eq(LevelLibrary.boss_kind_for_slot(30), BossState.Kind.BOUNCY_SLIME)
+	check_eq(LevelLibrary.boss_kind_for_slot(40), BossState.Kind.GLASS_SLIME)
+	check_eq(LevelLibrary.boss_kind_for_slot(50), BossState.Kind.VOID_SLIME)
 	check_eq(LevelLibrary.boss_kind_for_slot(9), BossState.Kind.NONE)
 	check(not LevelLibrary.is_placeholder(10))
 	check(not LevelLibrary.is_placeholder(20))
@@ -165,3 +165,18 @@ func test_rows_from_json() -> void:
 	check(LevelValidator.rows_from_json(["ab", 3]).is_empty(), "non-string entry")
 	check(LevelValidator.rows_from_json("ab").is_empty(), "not an array")
 	check(LevelValidator.rows_from_json(null).is_empty(), "null")
+
+
+func test_designer_levels_replace_the_built_in_layout() -> void:
+	var parsed: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(LevelLibrary.DESIGNER_PATH))
+	var slots: Dictionary = parsed.get("slots", {})
+	for key: Variant in slots:
+		var slot: int = str(key).to_int()
+		var rows: PackedStringArray = LevelLibrary.to_rows(slots[key])
+		check_eq(LevelValidator.problem_with(rows), "", "designer slot %d" % slot)
+		check(LevelLibrary.has_designer_level(slot), "designer slot %d ships" % slot)
+		check_eq(LevelLibrary.shipped_rows(slot), rows, "designer slot %d is what ships" % slot)
+		check(not LevelLibrary.is_placeholder(slot), "designer slot %d is not a placeholder" % slot)
+	for slot: int in range(1, GameConstants.SLOT_COUNT + 1):
+		if not LevelLibrary.has_designer_level(slot):
+			check_eq(LevelLibrary.shipped_rows(slot), LevelLibrary.built_in_rows(slot), "slot %d keeps its built-in layout" % slot)

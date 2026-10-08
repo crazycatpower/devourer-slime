@@ -177,12 +177,12 @@ static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float, pre
 	if not boss.active or boss.dead or boss.state == BossState.State.SUSPENDED:
 		return BossHit.NONE
 
-	if sim.boss_kind == BossState.Kind.WORLD_3:
+	if sim.boss_kind == BossState.Kind.GLASS_SLIME:
 		if boss.state == BossState.State.INTRO:
 			return BossHit.NONE
-		return BossHit.SPENT if BossWorld3.hit_by_projectile(sim, cx, cy, preview) else BossHit.NONE
+		return BossHit.SPENT if BossGlassSlime.hit_by_projectile(sim, cx, cy, preview) else BossHit.NONE
 
-	var is_world_1: bool = sim.boss_kind == BossState.Kind.WORLD_1
+	var is_mud_golem: bool = sim.boss_kind == BossState.Kind.MUD_GOLEM
 	var n: int = boss.grid_size
 	var p_left: float = cx - p.w / 2.0
 	var p_right: float = cx + p.w / 2.0
@@ -211,9 +211,9 @@ static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float, pre
 					continue
 				if preview:
 					return BossHit.SPENT
-				BossWorld4.feed_cell(sim, p, br, bc, cell_x, cell_y)
-				if is_world_1:
-					BossWorld1.update_bounds(sim)
+				BossVoidSlime.feed_cell(sim, p, br, bc, cell_x, cell_y)
+				if is_mud_golem:
+					BossMudGolem.update_bounds(sim)
 				return BossHit.SPENT
 			# An occupied cell is solid: the block is knocked away and stays
 			# in play, to land somewhere as a block again.

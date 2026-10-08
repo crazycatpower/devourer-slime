@@ -17,7 +17,7 @@ func after_each() -> void:
 
 func test_slot_without_save_resolves_to_built_in() -> void:
 	check(not repo.has_custom(2))
-	check(repo.resolve(2).equals(LevelLibrary.built_in_level(2)))
+	check(repo.resolve(2).equals(LevelLibrary.shipped_level(2)))
 	check(repo.custom_rows(2).is_empty())
 	check_eq(repo.export_slot(2), "")
 	check_eq(repo.export_all(), "")
@@ -35,7 +35,7 @@ func test_save_load_and_delete() -> void:
 
 	check_eq(repo.delete_custom(7), OK)
 	check(not repo.has_custom(7))
-	check(repo.resolve(7).equals(LevelLibrary.built_in_level(7)), "falls back to the built-in level")
+	check(repo.resolve(7).equals(LevelLibrary.shipped_level(7)), "falls back to the shipped level")
 	check_eq(repo.delete_custom(7), OK, "deleting twice is harmless")
 
 
@@ -53,7 +53,7 @@ func test_damaged_save_is_ignored() -> void:
 		file.close()
 		check(repo.custom_rows(4).is_empty(), "content %s" % content)
 		check(repo.is_custom_damaged(4), "flagged as damaged: %s" % content)
-		check(repo.resolve(4).equals(LevelLibrary.built_in_level(4)), "falls back for %s" % content)
+		check(repo.resolve(4).equals(LevelLibrary.shipped_level(4)), "falls back for %s" % content)
 
 
 func test_export_uses_the_web_format() -> void:

@@ -69,7 +69,9 @@ func _process(delta: float) -> void:
 		lerpf(camera.prev_x, camera.x, camera_alpha), lerpf(camera.prev_y, camera.y, camera_alpha)
 	)
 	_world.scale = Vector2(world_scale, world_scale)
-	_world.position = (shake_offset - camera_position) * world_scale
+	# Whole pixels: the tiles are kept drawings aligned to the pixel grid, and
+	# moving them by a fraction would blur their edges unevenly.
+	_world.position = ((shake_offset - camera_position) * world_scale).round()
 	queue_redraw()
 	for layer: WorldLayer in _layers:
 		layer.request_redraw()

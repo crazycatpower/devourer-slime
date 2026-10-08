@@ -21,30 +21,35 @@ func _paint(p: Painter, sim: GameSim) -> void:
 		return
 	var pos: Vector2 = view.tween_position(boss.prev_x, boss.prev_y, boss.x, boss.y)
 	var kind: BossState.Kind = sim.boss_kind
-	var is_world_1: bool = kind == BossState.Kind.WORLD_1
+	var is_mud_golem: bool = kind == BossState.Kind.MUD_GOLEM
 
-	if boss.state == BossState.State.CHARGING:
+	var is_glass_slime: bool = kind == BossState.Kind.GLASS_SLIME
+	if is_glass_slime:
+		_paint_glass_warning(p, sim)
+	elif boss.state == BossState.State.CHARGING:
 		_paint_leap_preview(p, sim, pos)
 
 	p.push()
-	# Squash and stretch pivot on the feet. The block body of World 1 stays rigid.
+	# Squash and stretch pivot on the feet. The block body of the mud golem stays rigid.
 	p.translate(pos.x + boss.w / 2.0, pos.y + boss.h)
-	if not is_world_1:
+	if not is_mud_golem:
 		p.scale(boss.scale_x, boss.scale_y)
 
-	if is_world_1:
-		_paint_world_1_phase_aura(p, sim)
+	if is_mud_golem:
+		_paint_mud_golem_phase_aura(p, sim)
 		_paint_block_body(p, sim)
+	elif is_glass_slime:
+		_paint_glass_body(p, sim)
 	else:
 		_paint_slime_body(p, sim)
-		if kind != BossState.Kind.WORLD_3:
-			_paint_cells(p, sim)
+		_paint_cells(p, sim)
 	_paint_face(p, sim, pos)
 	_paint_status(p, sim)
 	p.pop()
 
-	if kind == BossState.Kind.WORLD_3:
+	if is_glass_slime:
 		_paint_shields(p, sim)
+		_paint_bombs(p, sim)
 	_paint_devour_beam(p, sim, pos)
 
 
@@ -65,8 +70,8 @@ func _paint_steel_chase(p: Painter, sim: GameSim) -> void:
 	p.pop()
 
 
-func _paint_world_1_phase_aura(p: Painter, sim: GameSim) -> void:
-	var phase: int = BossWorld1.phase_profile(sim)["phase"] as int
+func _paint_mud_golem_phase_aura(p: Painter, sim: GameSim) -> void:
+	var phase: int = BossMudGolem.phase_profile(sim)["phase"] as int
 	if phase == 0:
 		return
 	var boss: BossState = sim.boss
@@ -92,23 +97,19 @@ func _paint_slime_body(p: Painter, sim: GameSim) -> void:
 	var fill: Color
 	var outline: Color
 	var outline_width: float
-	if kind == BossState.Kind.WORLD_2:
+	if kind == BossState.Kind.BOUNCY_SLIME:
 		fill = Color(Palette.PINK_500, 0.22)
 		outline = Palette.PINK_600
 		outline_width = 4.0 + sin(t / 60.0) * 1.5
-	elif kind == BossState.Kind.WORLD_3:
-		fill = Color(Palette.CYAN_500, 0.18)
-		outline = Palette.CYAN_500
-		outline_width = 4.5 + sin(t / 60.0) * 1.5
 	elif is_filled:
 		fill = Color(Palette.PURPLE_500, 0.35)
 		outline = Palette.PURPLE_500
 		outline_width = 5.0 + sin(t / 80.0) * 2.0
-	elif filled >= BossWorld4.PHASE_3_FILLED:
+	elif filled >= BossVoidSlime.PHASE_3_FILLED:
 		fill = Color(Palette.RED_500, 0.28 + sin(t / 65.0) * 0.12)
 		outline = Palette.RED_500
 		outline_width = 4.5 + sin(t / 45.0) * 2.0
-	elif filled >= BossWorld4.PHASE_2_FILLED:
+	elif filled >= BossVoidSlime.PHASE_2_FILLED:
 		fill = Color(Palette.AMBER_500, 0.18 + sin(t / 120.0) * 0.05)
 		outline = Palette.AMBER_500
 		outline_width = 3.5 + sin(t / 90.0)
@@ -116,7 +117,7 @@ func _paint_slime_body(p: Painter, sim: GameSim) -> void:
 		fill = Color(Palette.EMERALD_500, 0.15)
 		outline = Palette.EMERALD_500
 		outline_width = 3.0
-	if kind == BossState.Kind.WORLD_4 and boss.damage_flash > 0.0:
+	if kind == BossState.Kind.VOID_SLIME and boss.damage_flash > 0.0:
 		fill = Color(FLASH_COLOR, clampf(0.4 + boss.damage_flash * 0.5, 0.0, 1.0))
 
 	p.fill_round_rect(-half_w, -boss.h, boss.w, boss.h, 6.0, fill)
@@ -128,24 +129,15 @@ func _paint_slime_body(p: Painter, sim: GameSim) -> void:
 	p.fill_rect(-half_w + 10.0, -boss.h + 8.0, boss.w - 20.0, 3.0, Color(Palette.WHITE, 0.18))
 	p.fill_rect(-half_w + 8.0, -9.0, boss.w - 16.0, 5.0, Color(outline.darkened(0.5), 0.5))
 
-	if kind == BossState.Kind.WORLD_3:
-		# A big glass block: a cross inside and two glints.
-		var cross: Color = Color(Palette.CYAN_500, 0.55)
-		p.line(-half_w + 14.0, -boss.h + 14.0, half_w - 14.0, -14.0, cross, 4.0)
-		p.line(half_w - 14.0, -boss.h + 14.0, -half_w + 14.0, -14.0, cross, 4.0)
-		var glint: Color = Color(Palette.WHITE, 0.55)
-		p.line(-half_w + 24.0, -boss.h + 24.0, -half_w + 55.0, -boss.h + 55.0, glint, 4.5)
-		p.line(half_w - 55.0, -55.0, half_w - 24.0, -24.0, glint, 4.5)
-
 	p.stroke_round_rect(-half_w, -boss.h, boss.w, boss.h, 6.0, outline, outline_width)
 
-	if kind == BossState.Kind.WORLD_2:
+	if kind == BossState.Kind.BOUNCY_SLIME:
 		var gap: float = 14.0 + sin(t / 180.0) * 2.0
 		p.fill_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(Palette.FUCHSIA_400, 0.07))
 		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(Palette.FUCHSIA_500, 0.18), 7.0)
 		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Palette.FUCHSIA_400, 2.0)
 
-	if kind == BossState.Kind.WORLD_4 and filled >= BossWorld4.PHASE_3_FILLED and fmod(t, 350.0) < 160.0:
+	if kind == BossState.Kind.VOID_SLIME and filled >= BossVoidSlime.PHASE_3_FILLED and fmod(t, 350.0) < 160.0:
 		# Phase 3: sparks arc between random cells.
 		var from: Vector2 = _cell_center(randi() % 3, randi() % 3, half_w, boss.h)
 		var to: Vector2 = _cell_center(randi() % 3, randi() % 3, half_w, boss.h)
@@ -174,12 +166,12 @@ func _paint_cells(p: Painter, sim: GameSim) -> void:
 				continue
 			p.fill_rect(x + 2.0, y + 2.0, _T - 4.0, _T - 4.0, Palette.SLATE_900)
 			p.dashed_rect(x + 3.5, y + 3.5, _T - 7.0, _T - 7.0, Palette.PURPLE_500, 2.0, 4.0)
-			var inset: float = BossCollision.VOID_CORE_MIN
-			var core_size: float = BossCollision.VOID_CORE_MAX - inset
-			p.fill_rect(x + inset, y + inset, core_size, core_size, Color(Palette.PURPLE_500, 0.35))
+			# The whole cell is lethal, so the whole cell glows.
+			var pulse: float = 0.3 + sin(view.time_ms / 150.0) * 0.1
+			p.fill_rect(x + 2.0, y + 2.0, _T - 4.0, _T - 4.0, Color(Palette.PURPLE_500, pulse))
 
 
-## World 1: the body is nothing but the blocks it has absorbed.
+## Mud golem: the body is nothing but the blocks it has absorbed.
 func _paint_block_body(p: Painter, sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var n: int = boss.grid_size
@@ -245,13 +237,13 @@ func _paint_block_body(p: Painter, sim: GameSim) -> void:
 func _paint_face(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	var boss: BossState = sim.boss
 	var player: PlayerState = sim.player
-	var is_world_1: bool = sim.boss_kind == BossState.Kind.WORLD_1
-	# The face sits on the core cell of World 1 and in the upper middle of
+	var is_mud_golem: bool = sim.boss_kind == BossState.Kind.MUD_GOLEM
+	# The face sits on the core cell of the mud golem and in the upper middle of
 	# the slime bosses.
 	var face_x: float = 0.0
 	var face_y: float = -boss.h / 1.7
 	var look_from: Vector2 = pos + Vector2(boss.w / 2.0, boss.h / 2.0)
-	if is_world_1:
+	if is_mud_golem:
 		face_x = -boss.w / 2.0 + (float(boss.center_c - boss.min_c) + 0.5) * _T
 		face_y = -boss.h + (float(boss.center_r - boss.min_r) + 0.5) * _T
 		look_from = pos + Vector2(boss.w / 2.0 + face_x, boss.h + face_y)
@@ -264,7 +256,7 @@ func _paint_face(p: Painter, sim: GameSim, pos: Vector2) -> void:
 
 	p.push()
 	p.translate(face_x, face_y)
-	if fmod(view.time_ms, BLINK_PERIOD_MS) < BLINK_LENGTH_MS:
+	if boss.state == BossState.State.STUNNED or fmod(view.time_ms, BLINK_PERIOD_MS) < BLINK_LENGTH_MS:
 		p.fill_rect(eye_x - 28.0, eye_y, 15.0, 3.0, Palette.SLATE_900)
 		p.fill_rect(eye_x + 13.0, eye_y, 15.0, 3.0, Palette.SLATE_900)
 	else:
@@ -272,7 +264,7 @@ func _paint_face(p: Painter, sim: GameSim, pos: Vector2) -> void:
 		p.fill_rect(eye_x - spacing - 7.0, eye_y - 14.0, 14.0, 26.0, Palette.WHITE)
 		p.fill_rect(eye_x + spacing - 7.0, eye_y - 14.0, 14.0, 26.0, Palette.WHITE)
 		var pupil: Color = Palette.RED_500
-		if sim.boss_kind == BossState.Kind.WORLD_3:
+		if sim.boss_kind == BossState.Kind.GLASS_SLIME:
 			pupil = Palette.CYAN_500
 		elif hungry and sim.boss_kind != BossState.Kind.STEEL_CHASE:
 			pupil = Palette.PURPLE_500
@@ -288,13 +280,11 @@ func _paint_status(p: Painter, sim: GameSim) -> void:
 	var kind: BossState.Kind = sim.boss_kind
 	var t: float = view.time_ms
 
-	if kind == BossState.Kind.WORLD_2 or kind == BossState.Kind.WORLD_3:
-		p.push()
-		if kind == BossState.Kind.WORLD_3:
-			# Reserve the space above the orbit for the status text.
-			p.translate(0.0, -60.0)
+	if kind == BossState.Kind.GLASS_SLIME:
+		# Its core shows the durability and its moves announce themselves.
+		return
+	if kind == BossState.Kind.BOUNCY_SLIME:
 		_paint_durability(p, sim)
-		p.pop()
 		return
 
 	if boss.state == BossState.State.CHARGING:
@@ -337,21 +327,16 @@ func _paint_status(p: Painter, sim: GameSim) -> void:
 		p.text(label, 0.0, bar_y - 6.0, 9.0, Palette.AMBER_400 if ready else Palette.ZINC_200, true)
 
 
-## Hit points of Worlds 2 and 3, and how soon the next attack comes.
+## Hit points of the bouncy slime, and how soon its next leap comes.
 func _paint_durability(p: Painter, sim: GameSim) -> void:
 	var boss: BossState = sim.boss
-	var is_world_3: bool = sim.boss_kind == BossState.Kind.WORLD_3
 	var t: float = view.time_ms
 	var icons_y: float = -boss.h - 52.0
-	var text_color: Color = Palette.SKY_100 if is_world_3 else Palette.PINK_100
-	p.text("核心穩定度" if is_world_3 else "護盾耐久", 0.0, icons_y - 14.0, 11.0, text_color, true)
+	var text_color: Color = Palette.PINK_100
+	p.text("護盾耐久", 0.0, icons_y - 14.0, 11.0, text_color, true)
 	for i: int in BossState.MAX_DURABILITY:
 		var x: float = float(i - 1) * 22.0
-		var alive: bool = i < boss.durability
-		if is_world_3:
-			p.icon_gem(x, icons_y, 16.0, Palette.CYAN_400 if alive else Palette.SLATE_700)
-		else:
-			p.icon_heart(x, icons_y, 16.0, Palette.PINK_500 if alive else Palette.SLATE_700)
+		p.icon_heart(x, icons_y, 16.0, Palette.PINK_500 if i < boss.durability else Palette.SLATE_700)
 
 	if boss.state != BossState.State.CHARGING and boss.state != BossState.State.ACTIVE:
 		return
@@ -362,24 +347,21 @@ func _paint_durability(p: Painter, sim: GameSim) -> void:
 	elif boss.max_cooldown > 0:
 		progress = float(boss.max_cooldown - boss.cooldown) / float(boss.max_cooldown)
 	progress = clampf(progress, 0.0, 1.0)
-	var ready: bool = (is_world_3 or boss.state == BossState.State.CHARGING) and progress >= 0.95
+	var ready: bool = boss.state == BossState.State.CHARGING and progress >= 0.95
 	p.fill_rect(-65.0, bar_y, 130.0, 8.0, Color(Palette.SLATE_900, 0.85))
-	var bar_color: Color = Palette.CYAN_500 if is_world_3 else Palette.PINK_600
+	var bar_color: Color = Palette.PINK_600
 	if ready:
 		bar_color = Palette.PINK_400 if fmod(t, 160.0) < 80.0 else Palette.PINK_500
 	p.fill_rect(-63.5, bar_y + 1.5, 127.0 * progress, 5.0, bar_color)
-	p.stroke_rect(-65.0, bar_y, 130.0, 8.0, Palette.CYAN_200 if is_world_3 else Palette.PINK_200, 1.0)
+	p.stroke_rect(-65.0, bar_y, 130.0, 8.0, Palette.PINK_200, 1.0)
 	var label: String
 	if ready:
-		label = "即將發射！" if is_world_3 else "即將衝撞！"
-	elif is_world_3:
-		label = "下一次攻擊 %d%%" % roundi(progress * 100.0)
+		label = "即將衝撞！"
 	elif boss.state == BossState.State.CHARGING:
 		label = "蓄力中 %d%%" % roundi(progress * 100.0)
 	else:
 		label = "休息中 %d%%" % roundi(progress * 100.0)
 	p.text(label, 0.0, bar_y - 6.0, 9.0, text_color, true)
-
 
 func _charge_progress(boss: BossState) -> float:
 	if boss.max_charge_timer <= 0:
@@ -387,34 +369,105 @@ func _charge_progress(boss: BossState) -> float:
 	return clampf(1.0 - float(boss.charge_timer) / float(boss.max_charge_timer), 0.0, 1.0)
 
 
-# --- World 3 shields ----------------------------------------------------------------
+# --- Glass slime shields -------------------------------------------------------------
 
 func _paint_shields(p: Painter, sim: GameSim) -> void:
-	var boss: BossState = sim.boss
-	var count: int = boss.shields.size()
-	for i: int in count:
-		var shield: ShieldState = boss.shields[i]
+	for shield: ShieldState in sim.boss.shields:
 		if not shield.active:
 			continue
-		var detaching: bool = shield.mode == ShieldState.Mode.DETACHING
-		var spin: float = 8.0 if detaching else 1.5
+		# Each shield is a glass tile.
+		TilePainter.draw(p, Tile.GLASS, shield.cx - _T / 2.0, shield.cy - _T / 2.0, view.time_ms)
+		if shield.winding_up:
+			# The one about to be thrown flashes, faster as the throw nears.
+			var left: float = clampf(float(shield.windup_timer) / float(ShieldState.WINDUP_TICKS), 0.0, 1.0)
+			var flash: float = 0.45 + sin(view.time_ms / lerpf(22.0, 70.0, left)) * 0.4
+			p.fill_round_rect(shield.cx - _T / 2.0, shield.cy - _T / 2.0, _T, _T, 9.0, Color(Palette.WHITE, flash))
+
+
+## Glass bombs remain visible in flight and explode at first contact.
+func _paint_bombs(p: Painter, sim: GameSim) -> void:
+	for bomb: GlassBomb in sim.boss.bombs:
+		var at: Vector2 = view.tween_position(bomb.prev_x, bomb.prev_y, bomb.x, bomb.y)
+		var size: float = BossGlassSlime.BOMB_RADIUS * 2.0
 		p.push()
-		p.translate(shield.cx, shield.cy)
-		p.rotate(view.time_ms / 1500.0 * spin + float(i) * TAU / float(count) + PI / 4.0)
-		if detaching:
-			# A shield about to be fired glows.
-			var glow: float = 26.0 + sin(view.time_ms / 30.0) * 3.0
-			p.fill_round_rect(-glow, -glow, glow * 2.0, glow * 2.0, 3.0, Color(Palette.CYAN_400, 0.25))
-		p.fill_round_rect(-20.0, -20.0, 40.0, 40.0, 2.0, Color(Palette.CYAN_200, 0.95 if detaching else 0.65))
-		p.stroke_round_rect(
-			-20.0, -20.0, 40.0, 40.0, 2.0, Palette.WHITE if detaching else Palette.CYAN_400,
-			3.5 if detaching else 2.5
-		)
-		p.line(-10.0, -10.0, 10.0, 10.0, Color(Palette.WHITE, 0.85), 1.5)
-		p.stroke_rect(-15.0, -15.0, 30.0, 30.0, Color(Palette.WHITE, 0.28), 1.0)
-		p.fill_rect(-13.0, -13.0, 7.0, 3.0, Color(Palette.WHITE, 0.6))
+		p.translate(at.x - size / 2.0, at.y - size / 2.0)
+		p.scale(size / _T, size / _T)
+		TilePainter.draw(p, Tile.GLASS, 0.0, 0.0, view.time_ms)
 		p.pop()
 
+## The glass slime is a glass tile three cells across: the very same drawing,
+## enlarged. Damage shows as a mirrored pair of cracks per point lost, and as
+## the pips above it.
+func _paint_glass_body(p: Painter, sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	var half_w: float = boss.w / 2.0
+	p.push()
+	p.translate(-half_w, -boss.h)
+	p.scale(boss.w / _T, boss.h / _T)
+	TilePainter.draw(p, Tile.GLASS, 0.0, 0.0, view.time_ms)
+	p.pop()
+	if boss.damage_flash > 0.0:
+		p.fill_round_rect(-half_w, -boss.h, boss.w, boss.h, 27.0, Color(FLASH_COLOR, clampf(boss.damage_flash, 0.0, 1.0) * 0.6))
+
+	var lost: int = BossState.MAX_DURABILITY - boss.durability
+	var crack: Color = Color("1a8298")
+	for side: float in [-1.0, 1.0]:
+		if lost >= 1:
+			p.polyline(PackedVector2Array([
+				Vector2(side * 51.0, -boss.h + 24.0), Vector2(side * 38.0, -boss.h + 36.0), Vector2(side * 51.0, -boss.h + 50.0),
+			]), crack, 4.0)
+		if lost >= 2:
+			p.polyline(PackedVector2Array([
+				Vector2(side * 51.0, -24.0), Vector2(side * 38.0, -36.0), Vector2(side * 51.0, -50.0),
+			]), crack, 4.0)
+
+	# Durability pips, above the ring of shields.
+	var stunned: bool = boss.state == BossState.State.STUNNED
+	for i: int in BossState.MAX_DURABILITY:
+		var lit: bool = i < boss.durability
+		var pip: Color = Palette.CYAN_400 if lit else Color("0f3a47")
+		if lit and stunned and fmod(view.time_ms, 240.0) < 120.0:
+			pip = Palette.WHITE
+		p.fill_round_rect(float(i - 1) * 20.0 - 8.0, -boss.h - 62.0, 16.0, 10.0, 4.0, Color("1a8298"))
+		p.fill_round_rect(float(i - 1) * 20.0 - 5.5, -boss.h - 59.5, 11.0, 5.0, 2.0, pip)
+
+## The glass slime's coming slam or swoop, drawn in the arena. Amber while
+## the mark still follows the player, red once it is committed.
+func _paint_glass_warning(p: Painter, sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	if boss.state != BossState.State.CHARGING and boss.state != BossState.State.JUMPING:
+		return
+	var progress: float = 1.0 if boss.state == BossState.State.JUMPING else _charge_progress(boss)
+	if boss.current_move == BossGlassSlime.Move.REPAIR:
+		var glow: Color = Color(Palette.CYAN_400, 0.3 + 0.5 * progress)
+		p.stroke_circle(boss.center_x(), boss.center_y(), BossState.SHIELD_ORBIT_RADIUS + 24.0, glow, 2.5)
+		p.text("意圖：修復護盾 +%d" % BossGlassSlime.repair_amount(boss), boss.center_x(), boss.y - 85.0, 14.0, Palette.CYAN_400, true)
+		return
+	var locked: bool = progress >= BossGlassSlime.TRACKING_SHARE
+	var color: Color = Palette.RED_400 if locked else Palette.AMBER_400
+	var blink: float = 0.55 + sin(view.time_ms / (40.0 if locked else 90.0)) * 0.25
+	var lane: Color = Color(color, 0.07 + 0.09 * progress)
+	if boss.current_move == BossGlassSlime.Move.SWOOP:
+		# The arc, as the body swept along it, and an outline at its low point.
+		var from: float = boss.swoop_progress if boss.state == BossState.State.JUMPING else 0.0
+		var previous: Vector2 = BossGlassSlime.swoop_point(boss, from)
+		var half: Vector2 = Vector2(boss.w, boss.h) / 2.0
+		for i: int in range(1, 25):
+			var t: float = lerpf(from, 1.0, float(i) / 24.0)
+			var point: Vector2 = BossGlassSlime.swoop_point(boss, t)
+			if previous.distance_to(point) > 0.5:
+				p.line(previous.x + half.x, previous.y + half.y, point.x + half.x, point.y + half.y, lane, boss.h)
+			previous = point
+		var low: Vector2 = Vector2(boss.dive_x, boss.dive_floor_y - boss.h)
+		p.stroke_round_rect(low.x, low.y, boss.w, boss.h, 27.0, Color(color, blink * 0.8), 2.5)
+		return
+	# The slam: the column under the body and the mark where it will rest.
+	var x: float = boss.dive_x
+	var floor_y: float = boss.dive_floor_y
+	var top: float = boss.y + boss.h
+	if floor_y > top:
+		p.fill_rect(x, top, boss.w, floor_y - top, lane)
+	p.fill_round_rect(x - 6.0, floor_y - 6.0, boss.w + 12.0, 6.0, 3.0, Color(color, blink))
 
 # --- Leap telegraph -------------------------------------------------------------------
 
@@ -425,10 +478,10 @@ func _paint_leap_preview(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	var start: Vector2 = pos + Vector2(boss.w / 2.0, boss.h / 2.0)
 	var points: PackedVector2Array
 	var color: Color
-	if sim.boss_kind == BossState.Kind.WORLD_2:
+	if sim.boss_kind == BossState.Kind.BOUNCY_SLIME:
 		points = _simulate_bouncing_leap(sim, start)
 		color = Palette.PINK_600
-	elif sim.boss_kind == BossState.Kind.WORLD_4:
+	elif sim.boss_kind == BossState.Kind.VOID_SLIME:
 		points = _simulate_smashing_leap(sim, start)
 		color = Palette.PURPLE_500
 	else:
@@ -455,8 +508,8 @@ func _paint_leap_preview(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	)
 
 
-## World 2's leap: rebounds off blocks, walls and the ceiling, and bounces on
-## the floor a number of times. Mirrors [BossWorld2].
+## The bouncy slime's leap: rebounds off blocks, walls and the ceiling, and bounces on
+## the floor a number of times. Mirrors [BossBouncySlime].
 func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array:
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
@@ -464,33 +517,33 @@ func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 	var half_h: float = boss.h / 2.0
 	var x: float = start.x
 	var y: float = start.y
-	var vx: float = BossWorld2.leap_vx(BossSystem.player_dx(sim))
-	var vy: float = -BossWorld2.LEAP_SPEED
-	var bounces: int = BossWorld2.bounces_for(boss.durability)
+	var vx: float = BossBouncySlime.leap_vx(BossSystem.player_dx(sim))
+	var vy: float = -BossBouncySlime.LEAP_SPEED
+	var bounces: int = BossBouncySlime.bounces_for(boss.durability)
 	var points: PackedVector2Array = PackedVector2Array([start])
 
 	for _step: int in PREVIEW_TICKS:
-		vy += BossWorld2.GRAVITY_LEAPING
+		vy += BossBouncySlime.GRAVITY_LEAPING
 		x += vx
-		var hit_col: int = BossWorld2.wall_contact_column(level, x - half_w, y - half_h, boss.w, boss.h, vx)
+		var hit_col: int = BossBouncySlime.wall_contact_column(level, x - half_w, y - half_h, boss.w, boss.h, vx)
 		if hit_col >= 0:
 			if vx > 0.0:
 				x = float(hit_col) * _T - half_w - 0.1
 			elif vx < 0.0:
 				x = float(hit_col + 1) * _T + half_w + 0.1
-			vx = -vx * BossWorld2.BOUNCE_RESTITUTION
+			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
 		y += vy
 
 		var right_limit: float = level.pixel_width() - _T - half_w
 		if x < _T + half_w:
 			x = _T + half_w
-			vx = -vx * BossWorld2.BOUNCE_RESTITUTION
+			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
 		elif x > right_limit:
 			x = right_limit
-			vx = -vx * BossWorld2.BOUNCE_RESTITUTION
+			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
 		if y < _T + half_h:
 			y = _T + half_h
-			vy = -vy * BossWorld2.BOUNCE_RESTITUTION
+			vy = -vy * BossBouncySlime.BOUNCE_RESTITUTION
 		points.append(Vector2(x, y))
 
 		var r_floor: int = floori((y + half_h) / _T)
@@ -499,18 +552,18 @@ func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 			if bounces <= 0:
 				break
 			bounces -= 1
-			vy = -BossWorld2.LEAP_SPEED
+			vy = -BossBouncySlime.LEAP_SPEED
 			if absf(vx) < 5.0:
 				vx = (1.0 if vx >= 0.0 else -1.0) * 6.0
 			else:
-				vx *= BossWorld2.BOUNCE_RESTITUTION
-		vx = clampf(vx, -BossWorld2.MAX_HORIZONTAL_SPEED, BossWorld2.MAX_HORIZONTAL_SPEED)
-		vy = clampf(vy, -BossWorld2.MAX_VERTICAL_SPEED, BossWorld2.MAX_VERTICAL_SPEED)
+				vx *= BossBouncySlime.BOUNCE_RESTITUTION
+		vx = clampf(vx, -BossBouncySlime.MAX_HORIZONTAL_SPEED, BossBouncySlime.MAX_HORIZONTAL_SPEED)
+		vy = clampf(vy, -BossBouncySlime.MAX_VERTICAL_SPEED, BossBouncySlime.MAX_VERTICAL_SPEED)
 	return points
 
 
-## World 4's ultimate: stops dead at the side walls, ploughs through every
-## breakable block and only lands on steel. Mirrors [BossWorld4].
+## The void slime's ultimate: stops dead at the side walls, ploughs through every
+## breakable block and only lands on steel. Mirrors [BossVoidSlime].
 func _simulate_smashing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array:
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
@@ -518,12 +571,12 @@ func _simulate_smashing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 	var half_h: float = boss.h / 2.0
 	var x: float = start.x
 	var y: float = start.y
-	var vx: float = BossWorld4.mega_leap_vx(BossSystem.player_dx(sim))
-	var vy: float = -BossWorld4.MEGA_JUMP_SPEED
+	var vx: float = BossVoidSlime.mega_leap_vx(BossSystem.player_dx(sim))
+	var vy: float = -BossVoidSlime.MEGA_JUMP_SPEED
 	var points: PackedVector2Array = PackedVector2Array([start])
 
 	for _step: int in PREVIEW_TICKS:
-		vy += BossWorld4.GRAVITY
+		vy += BossVoidSlime.GRAVITY
 		y += vy
 		if y < _T + half_h:
 			y = _T + half_h
@@ -566,11 +619,11 @@ func _floor_under(sim: GameSim, x: float, half_w: float, r_floor: int, steel_onl
 ## The stream of energy between the player and a boss being devoured.
 func _paint_devour_beam(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	var boss: BossState = sim.boss
-	if sim.boss_kind != BossState.Kind.WORLD_4:
+	if sim.boss_kind != BossState.Kind.VOID_SLIME:
 		return
 	if not (boss.is_filled() or boss.eating_progress > 0.0):
 		return
-	if not view.eat_held or sim.player.has_block or not BossWorld4.is_player_aiming_at_boss(sim):
+	if not view.eat_held or sim.player.has_block or not BossVoidSlime.is_player_aiming_at_boss(sim):
 		return
 	var player: PlayerState = sim.player
 	var from: Vector2 = view.tween_position(player.prev_x, player.prev_y, player.x, player.y)

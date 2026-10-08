@@ -1,5 +1,5 @@
 extends TestCase
-## Original World 1-7: four materials, ceiling storage and one-cell jumps.
+## Original World 2-7: four materials, ceiling storage and one-cell jumps.
 
 func test_original_level7_four_block_route_reaches_goal() -> void:
 	check_eq(LevelLibrary.built_in_rows(17),Fixtures.legacy_rows(17),"original map retained")
