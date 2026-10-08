@@ -1,4 +1,4 @@
-extends "res://tests/unit/test_world4_levels.gd"
+extends "res://tests/unit/test_world5_levels.gd"
 ## Replays intended campaign routes through the actual input/physics systems.
 
 func test_campaign_routes_and_layouts() -> void:

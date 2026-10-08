@@ -1,9 +1,22 @@
 class_name SlimeFace
 extends RefCounted
-## Large pixel eyes shared by the mascot and player. No mouth or blush.
+## The slime's flat rounded body and large eyes, shared by the mascot and
+## player. No mouth, blush or highlights.
 
 const EYE_WIDTH: float = 7.0
 const EYE_HEIGHT: float = 14.0
+const BODY_COLOR: Color = Palette.GREEN_500
+
+
+## Body filling a 40-unit square whose top-left corner is the origin: an even
+## rounded border around a flat face, like the blocks. [param tint] and
+## [param strength] turn it the colour of a swallowed block.
+static func paint_body(p: Painter, tint: Color = BODY_COLOR, strength: float = 0.0) -> void:
+	var fill: Color = BODY_COLOR.lerp(tint, clampf(strength, 0.0, 1.0))
+	p.fill_round_rect(0.0, 0.0, 40.0, 40.0, 11.0, fill.darkened(0.3))
+	p.fill_round_rect(4.0, 4.0, 32.0, 32.0, 7.0, fill)
+	# A deeper tone settles at the base of the jelly, the same on both sides.
+	p.fill_round_rect(4.0, 29.0, 32.0, 7.0, 7.0, fill.darkened(0.12), 6)
 
 
 static func paint(p: Painter, motion: SlimeMotion, look: Vector2) -> void:
@@ -23,7 +36,7 @@ static func paint(p: Painter, motion: SlimeMotion, look: Vector2) -> void:
 		var eye_x: float = 16.5 + side * separation
 		var eye_h: float = lerpf(open_h, 1.5, closed)
 		var eye_y: float = 18.0 - eye_h * 0.5 + ey
-		p.fill_rect(eye_x + ex, eye_y, EYE_WIDTH, eye_h, Palette.WHITE)
+		p.fill_round_rect(eye_x + ex, eye_y, EYE_WIDTH, eye_h, 3.0, Palette.WHITE)
 		if closed < 0.8:
 			var pupil_h: float = eye_h * lerpf(0.55, 0.3, motion.alarm)
 			var pupil_x: float = (EYE_WIDTH - pupil_w) * 0.5 + direction.x * 1.4
@@ -35,9 +48,9 @@ static func paint(p: Painter, motion: SlimeMotion, look: Vector2) -> void:
 				pupil_y += sin(swirl) * 2.4 * motion.daze
 			pupil_x = clampf(pupil_x, 0.0, EYE_WIDTH - pupil_w)
 			pupil_y = clampf(pupil_y, 0.0, eye_h - pupil_h)
-			p.fill_rect(eye_x + ex + pupil_x, eye_y + pupil_y, pupil_w, pupil_h, Palette.SLATE_900)
+			p.fill_round_rect(eye_x + ex + pupil_x, eye_y + pupil_y, pupil_w, pupil_h, 1.4, Palette.SLATE_900)
 		else:
-			p.fill_rect(eye_x + ex, eye_y, EYE_WIDTH, eye_h, Palette.SLATE_900)
+			p.fill_round_rect(eye_x + ex, eye_y, EYE_WIDTH, eye_h, 0.75, Palette.SLATE_900)
 
 
 ## Eyes squeezed shut after an impact: stepped pixel chevrons pointing inward, > <.

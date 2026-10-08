@@ -65,15 +65,24 @@ func reset() -> void:
 	if boss.active:
 		boss.x = BossSystem.spawn_x(level, boss.w)
 		boss.prev_x = boss.x
-	if boss_kind == BossState.Kind.WORLD_3:
-		BossWorld3.sync_orbiting_shields(self)
-	if boss_kind == BossState.Kind.WORLD_1:
-		BossWorld1.build_arena(self)
+	if boss_kind == BossState.Kind.GLASS_SLIME:
+		BossGlassSlime.build_arena(self)
+		BossGlassSlime.sync_orbiting_shields(self)
+	if boss_kind == BossState.Kind.MUD_GOLEM:
+		BossMudGolem.build_arena(self)
 	if boss_kind == BossState.Kind.STEEL_CHASE:
 		BossSteelChase.setup(self)
 	camera.shake = 0.0
-	camera.snap_to(player.center_x(), player.center_y(), level)
+	camera.snap_to(player.center_x(), _camera_focus_y(), level)
 	level_reset.emit()
+
+
+## Height the camera centres on. It is the player, except in the glass slime's
+## arena, where the view is lifted so the boss roaming overhead stays in sight.
+func _camera_focus_y() -> float:
+	if boss_kind == BossState.Kind.GLASS_SLIME and boss.active and not boss.dead:
+		return player.center_y() - BossGlassSlime.CAMERA_LIFT
+	return player.center_y()
 
 
 ## Advances the simulation by one tick.
@@ -99,7 +108,7 @@ func step(p_input: SimInput) -> void:
 
 ## Moves the camera toward the player. Call once per 60 Hz frame.
 func update_camera() -> void:
-	camera.follow(player.center_x(), player.center_y(), level)
+	camera.follow(player.center_x(), _camera_focus_y(), level)
 
 
 ## Gameplay clock in milliseconds. Pauses and slows down with the simulation.
@@ -225,11 +234,11 @@ static func debris_color(block_type: int) -> Color:
 ##
 ## Samples the ray every 3.25 units up to 65 units from ([param cx], [param cy]).
 func get_eat_target(cx: float, cy: float, nx: float, ny: float) -> EatTarget:
-	var is_world_1: bool = boss_kind == BossState.Kind.WORLD_1
-	if is_world_1 and boss.reorg_timer > 0:
+	var is_mud_golem: bool = boss_kind == BossState.Kind.MUD_GOLEM
+	if is_mud_golem and boss.reorg_timer > 0:
 		return null
 	var scan_boss: bool = (
-		is_world_1 and boss.active and not boss.dead and boss.state != BossState.State.SUSPENDED
+		is_mud_golem and boss.active and not boss.dead and boss.state != BossState.State.SUSPENDED
 	)
 	for i: int in range(1, 21):
 		var f: float = float(i) / 20.0
@@ -257,7 +266,7 @@ func get_eat_target(cx: float, cy: float, nx: float, ny: float) -> EatTarget:
 
 
 ## Solid boxes overlapping the given rectangle: level tiles, then the blocks
-## that make up the World 1 boss.
+## that make up the mud golem.
 func solid_boxes(rect_x: float, rect_y: float, rect_w: float, rect_h: float) -> Array[SolidBox]:
 	var list: Array[SolidBox] = []
 	var left: int = floori((rect_x + 0.001) / Tile.SIZE)
@@ -272,7 +281,7 @@ func solid_boxes(rect_x: float, rect_y: float, rect_w: float, rect_h: float) -> 
 					list.append(SolidBox.make(float(c) * Tile.SIZE, float(r) * Tile.SIZE, t))
 
 	if (
-		boss_kind == BossState.Kind.WORLD_1 and boss.active and not boss.dead
+		boss_kind == BossState.Kind.MUD_GOLEM and boss.active and not boss.dead
 		and boss.state != BossState.State.SUSPENDED
 	):
 		for r: int in range(boss.min_r, boss.max_r + 1):

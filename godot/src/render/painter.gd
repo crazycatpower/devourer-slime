@@ -17,12 +17,65 @@ var xf: Transform2D = Transform2D.IDENTITY
 var pixel_scale: float = 1.0
 
 var _stack: Array[Transform2D] = []
+var _screen_base: Transform2D
+# While recording, filled shapes are collected as triangles instead of drawn.
+var _recording: bool = false
+var _record_base: Transform2D
+var _record_points: PackedVector2Array
+var _record_colors: PackedColorArray
+var _record_indices: PackedInt32Array
+var _has_screen_base: bool = false
+
+## Unit directions along one corner's quarter turn, and triangle-fan indices by
+## point count. Shared, so drawing a rounded rectangle does no trigonometry
+## and no triangulation.
+static var _arc: PackedVector2Array = PackedVector2Array()
+static var _fans: Dictionary[int, PackedInt32Array] = {}
 
 
 func _init(canvas_item: CanvasItem, p_pixel_scale: float = 1.0) -> void:
 	ci = canvas_item
 	pixel_scale = maxf(p_pixel_scale, 0.01)
 	ci.draw_set_transform_matrix(xf)
+
+
+## Starts collecting the shapes drawn from now on instead of drawing them, with
+## the current transform as their origin. Lines, arcs and filled shapes are
+## supported; text and dashed or outlined rectangles are not.
+func begin_recording() -> void:
+	_recording = true
+	_record_base = xf.affine_inverse()
+	_record_points = PackedVector2Array()
+	_record_colors = PackedColorArray()
+	_record_indices = PackedInt32Array()
+
+
+## Ends [method begin_recording]. The result is drawn with [method draw_shape],
+## as often as needed, at the cost of a single draw call.
+func end_recording() -> Array:
+	_recording = false
+	return [_record_indices, _record_points, _record_colors]
+
+
+func is_recording() -> bool:
+	return _recording
+
+
+func draw_shape(shape: Array) -> void:
+	var indices: PackedInt32Array = shape[0]
+	if indices.is_empty():
+		return
+	var points: PackedVector2Array = shape[1]
+	var colors: PackedColorArray = shape[2]
+	RenderingServer.canvas_item_add_triangle_array(ci.get_canvas_item(), indices, points, colors)
+
+
+## Drawing units to screen pixels, for the current transform.
+func to_screen() -> Transform2D:
+	if not _has_screen_base:
+		_screen_base = ci.get_screen_transform()
+		_has_screen_base = true
+	return _screen_base * xf
 
 
 func push() -> void:
@@ -57,6 +110,11 @@ func shear_x(amount: float) -> void:
 
 
 func fill_rect(x: float, y: float, w: float, h: float, color: Color) -> void:
+	if _recording:
+		_fill_convex(PackedVector2Array([
+			Vector2(x, y), Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h),
+		]), color)
+		return
 	ci.draw_rect(Rect2(x, y, w, h), color)
 
 
@@ -78,10 +136,17 @@ func dashed_rect(
 	ci.draw_dashed_line(d, a, color, width, dash)
 
 
-func fill_round_rect(x: float, y: float, w: float, h: float, radius: float, color: Color) -> void:
+## [param corners] picks which corners are rounded: bit 0 top-right, 1
+## bottom-right, 2 bottom-left, 3 top-left. The others stay square.
+func fill_round_rect(
+	x: float, y: float, w: float, h: float, radius: float, color: Color, corners: int = 15
+) -> void:
 	if w <= 0.0 or h <= 0.0:
 		return
-	ci.draw_colored_polygon(_round_rect_points(x, y, w, h, radius), color)
+	if corners == 0:
+		fill_rect(x, y, w, h, color)
+		return
+	_fill_convex(_round_rect_points(x, y, w, h, radius, corners), color)
 
 
 func stroke_round_rect(
@@ -95,10 +160,20 @@ func stroke_round_rect(
 
 
 func line(x1: float, y1: float, x2: float, y2: float, color: Color, width: float) -> void:
+	if _recording:
+		var from: Vector2 = Vector2(x1, y1)
+		var to: Vector2 = Vector2(x2, y2)
+		var side: Vector2 = (to - from).orthogonal().normalized() * width * 0.5
+		_fill_convex(PackedVector2Array([from + side, to + side, to - side, from - side]), color)
+		return
 	ci.draw_line(Vector2(x1, y1), Vector2(x2, y2), color, width)
 
 
 func polyline(points: PackedVector2Array, color: Color, width: float) -> void:
+	if _recording:
+		for i: int in range(1, points.size()):
+			line(points[i - 1].x, points[i - 1].y, points[i].x, points[i].y, color, width)
+		return
 	if points.size() >= 2:
 		ci.draw_polyline(points, color, width)
 
@@ -114,14 +189,23 @@ func polygon(points: PackedVector2Array, color: Color) -> void:
 
 
 func triangle(a: Vector2, b: Vector2, c: Vector2, color: Color) -> void:
+	if _recording:
+		_fill_convex(PackedVector2Array([a, b, c]), color)
+		return
 	ci.draw_colored_polygon(PackedVector2Array([a, b, c]), color)
 
 
 func fill_circle(x: float, y: float, radius: float, color: Color) -> void:
+	if _recording:
+		fill_round_rect(x - radius, y - radius, radius * 2.0, radius * 2.0, radius, color)
+		return
 	ci.draw_circle(Vector2(x, y), radius, color)
 
 
 func stroke_circle(x: float, y: float, radius: float, color: Color, width: float) -> void:
+	if _recording:
+		arc(x, y, radius, 0.0, TAU, color, width)
+		return
 	ci.draw_arc(Vector2(x, y), radius, 0.0, TAU, 32, color, width, true)
 
 
@@ -129,6 +213,13 @@ func stroke_circle(x: float, y: float, radius: float, color: Color, width: float
 func arc(
 	x: float, y: float, radius: float, from: float, to: float, color: Color, width: float
 ) -> void:
+	if _recording:
+		var points: PackedVector2Array = PackedVector2Array()
+		for i: int in 17:
+			var angle: float = lerpf(from, to, float(i) / 16.0)
+			points.append(Vector2(x + cos(angle) * radius, y + sin(angle) * radius))
+		polyline(points, color, width)
+		return
 	ci.draw_arc(Vector2(x, y), radius, from, to, 16, color, width, true)
 
 
@@ -239,16 +330,73 @@ func icon_gem(x: float, y: float, size: float, color: Color) -> void:
 	)
 
 
-func _round_rect_points(x: float, y: float, w: float, h: float, radius: float) -> PackedVector2Array:
+func _round_rect_points(
+	x: float, y: float, w: float, h: float, radius: float, corners: int = 15
+) -> PackedVector2Array:
 	var r: float = minf(radius, minf(w, h) / 2.0)
 	var points: PackedVector2Array = PackedVector2Array()
+	var directions: PackedVector2Array = _unit_arc()
 	var centers: Array[Vector2] = [
 		Vector2(x + w - r, y + r), Vector2(x + w - r, y + h - r),
 		Vector2(x + r, y + h - r), Vector2(x + r, y + r),
 	]
+	var square: Array[Vector2] = [
+		Vector2(x + w, y), Vector2(x + w, y + h), Vector2(x, y + h), Vector2(x, y),
+	]
 	for corner: int in 4:
-		var start: float = -PI / 2.0 + float(corner) * PI / 2.0
+		if corners & (1 << corner) == 0:
+			points.append(square[corner])
+			continue
 		for i: int in _CORNER_SEGMENTS + 1:
-			var angle: float = start + (PI / 2.0) * float(i) / float(_CORNER_SEGMENTS)
-			points.append(centers[corner] + Vector2(cos(angle), sin(angle)) * r)
+			var point: Vector2 = centers[corner] + directions[corner * (_CORNER_SEGMENTS + 1) + i] * r
+			# A fully rounded side ends where the next corner starts; a repeated
+			# point would make the polygon invalid.
+			if points.is_empty() or not points[points.size() - 1].is_equal_approx(point):
+				points.append(point)
+	if points.size() > 1 and points[0].is_equal_approx(points[points.size() - 1]):
+		points.remove_at(points.size() - 1)
 	return points
+
+
+## Fills a convex outline: a fan from its first point covers it, so nothing has
+## to be triangulated.
+func _fill_convex(points: PackedVector2Array, color: Color) -> void:
+	var count: int = points.size()
+	if count < 3:
+		return
+	if not _recording:
+		RenderingServer.canvas_item_add_triangle_array(
+			ci.get_canvas_item(), _fan(count), points, PackedColorArray([color])
+		)
+		return
+	var local: Transform2D = _record_base * xf
+	var first: int = _record_points.size()
+	for point: Vector2 in points:
+		_record_points.append(local * point)
+		_record_colors.append(color)
+	for i: int in range(1, count - 1):
+		_record_indices.append(first)
+		_record_indices.append(first + i)
+		_record_indices.append(first + i + 1)
+
+
+## Directions for the four corners in drawing order, a quarter turn each.
+static func _unit_arc() -> PackedVector2Array:
+	if _arc.is_empty():
+		for corner: int in 4:
+			var start: float = -PI / 2.0 + float(corner) * PI / 2.0
+			for i: int in _CORNER_SEGMENTS + 1:
+				var angle: float = start + (PI / 2.0) * float(i) / float(_CORNER_SEGMENTS)
+				_arc.append(Vector2(cos(angle), sin(angle)))
+	return _arc
+
+
+static func _fan(count: int) -> PackedInt32Array:
+	if not _fans.has(count):
+		var indices: PackedInt32Array = PackedInt32Array()
+		for i: int in range(1, count - 1):
+			indices.append(0)
+			indices.append(i)
+			indices.append(i + 1)
+		_fans[count] = indices
+	return _fans[count]

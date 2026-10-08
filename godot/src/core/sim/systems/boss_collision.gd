@@ -2,9 +2,9 @@ class_name BossCollision
 extends RefCounted
 ## Contact between the player and a boss body.
 
-## The lethal core of an empty cell in the World 4 boss, as an inset.
-const VOID_CORE_MIN: float = 12.0
-const VOID_CORE_MAX: float = 28.0
+## An empty cell of the void slime kills on touch. Brushing its corner by
+## less than this is forgiven, so standing on the cell beside it is safe.
+const VOID_GRAZE: float = 3.0
 
 
 static func resolve(sim: GameSim) -> void:
@@ -14,16 +14,49 @@ static func resolve(sim: GameSim) -> void:
 	if boss.state == BossState.State.SUSPENDED or boss.state == BossState.State.INTRO:
 		return
 	match sim.boss_kind:
-		BossState.Kind.WORLD_1:
+		BossState.Kind.MUD_GOLEM:
 			_resolve_block_body(sim)
-		BossState.Kind.WORLD_2, BossState.Kind.WORLD_3:
+		BossState.Kind.BOUNCY_SLIME:
 			_resolve_trampoline(sim)
-		BossState.Kind.WORLD_4:
+		BossState.Kind.GLASS_SLIME:
+			_resolve_glass_body(sim)
+		BossState.Kind.VOID_SLIME:
 			_resolve_void_body(sim)
 
 
-## World 2 and 3: the boss never hurts on contact. It launches the player
-## away like an oversized bouncy block.
+## Solid glass contact separates bodies and stops the blocked velocity axis.
+static func _resolve_glass_body(sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	var player: PlayerState = sim.player
+	var overlap_x: float = minf(player.x + player.w, boss.x + boss.w) - maxf(player.x, boss.x)
+	var overlap_y: float = minf(player.y + player.h, boss.y + boss.h) - maxf(player.y, boss.y)
+	if overlap_x <= 0.0 or overlap_y <= 0.0:
+		return
+	var original_position: Vector2 = Vector2(player.x, player.y)
+	player.recoil_vx = 0.0
+	player.wall_bounce_timer = 0
+	player.grounded = false
+	if overlap_x < overlap_y:
+		player.x += -overlap_x if player.center_x() < boss.center_x() else overlap_x
+		player.vx = 0.0
+	elif player.center_y() < boss.center_y():
+		player.y -= overlap_y
+		player.vy = 0.0
+		player.grounded = true
+		player.is_jumping = false
+	else:
+		player.y += overlap_y
+		player.vy = 0.0
+		player.is_jumping = false
+	if not sim.solid_boxes(player.x, player.y, player.w, player.h).is_empty():
+		player.x = original_position.x
+		player.y = original_position.y
+		if sim.kill_player():
+			sim.spawn_particles(player.center_x(), player.center_y(), Palette.CYAN_500, 40, 8.0)
+			sim.play(Sfx.Id.HURT)
+
+
+## The bouncy slime launches the player like an oversized bouncy block.
 static func _resolve_trampoline(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var player: PlayerState = sim.player
@@ -36,9 +69,8 @@ static func _resolve_trampoline(sim: GameSim) -> void:
 	if overlap_x <= 0.0 or overlap_y <= 0.0:
 		return
 
-	var is_world_3: bool = sim.boss_kind == BossState.Kind.WORLD_3
-	var bounce_color: Color = Palette.CYAN_500 if is_world_3 else Palette.PINK_500
-	var sub_bounce_color: Color = Palette.CYAN_400 if is_world_3 else Palette.PINK_400
+	var bounce_color: Color = Palette.PINK_500
+	var sub_bounce_color: Color = Palette.PINK_400
 	var original_vx: float = player.vx
 	var original_vy: float = player.vy
 	# All contact directions launch the player, including side and underside.
@@ -87,7 +119,7 @@ static func _resolve_trampoline(sim: GameSim) -> void:
 		sim.play(Sfx.Id.BOUNCE)
 
 
-## World 4: a solid body whose unfilled cells are lethal void.
+## Void slime: a solid body whose unfilled cells are lethal void.
 static func _resolve_void_body(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var player: PlayerState = sim.player
@@ -105,11 +137,13 @@ static func _resolve_void_body(sim: GameSim) -> void:
 				continue
 			var cell_x: float = boss.x + float(c) * Tile.SIZE
 			var cell_y: float = boss.y + float(r) * Tile.SIZE
-			var touches_core: bool = not (
-				px_r <= cell_x + VOID_CORE_MIN or player.x >= cell_x + VOID_CORE_MAX
-				or py_b <= cell_y + VOID_CORE_MIN or player.y >= cell_y + VOID_CORE_MAX
-			)
-			if touches_core and sim.kill_player():
+			# The body is solid, so the player only ever sinks a little into a
+			# cell before being pushed out: any overlap counts, as long as it is
+			# wide enough along the touching side.
+			var touch_x: float = minf(px_r, cell_x + Tile.SIZE) - maxf(player.x, cell_x)
+			var touch_y: float = minf(py_b, cell_y + Tile.SIZE) - maxf(player.y, cell_y)
+			var touches: bool = touch_x > 0.0 and touch_y > 0.0 and maxf(touch_x, touch_y) > VOID_GRAZE
+			if touches and sim.kill_player():
 				sim.spawn_particles(
 					player.center_x(), player.center_y(), Palette.PURPLE_500, 40, 8.0
 				)
@@ -135,7 +169,7 @@ static func _resolve_void_body(sim: GameSim) -> void:
 		player.vy = maxf(0.0, player.vy)
 
 
-## World 1: the boss is a cluster of blocks. A leaping boss kills on touch;
+## Mud golem: the boss is a cluster of blocks. A leaping boss kills on touch;
 ## otherwise its blocks push the player like moving terrain.
 static func _resolve_block_body(sim: GameSim) -> void:
 	var boss: BossState = sim.boss

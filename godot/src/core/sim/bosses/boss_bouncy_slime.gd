@@ -1,6 +1,6 @@
-class_name BossWorld2
+class_name BossBouncySlime
 extends RefCounted
-## World 2 boss: a bouncy slime inside a shield that cannot be eaten.
+## The bouncy slime, boss of the third world: a slime inside a shield that cannot be eaten.
 ##
 ## It charges up, then pinballs around the arena, cracking the floor wherever
 ## it lands. Each time it drops out of the bottom of the map it loses one
@@ -100,7 +100,10 @@ static func _update_falling(sim: GameSim) -> void:
 		sim.camera.shake = 24.0
 		sim.play(Sfx.Id.LAND)
 		sim.spawn_particles(boss.center_x(), boss.y + boss.h, BODY_COLOR, 30, 5.5)
-		sim.damage_tiles_under_boss(r_floor)
+		if boss.soft_landing:
+			boss.soft_landing = false
+		else:
+			sim.damage_tiles_under_boss(r_floor)
 
 
 static func _update_charging(sim: GameSim) -> void:
@@ -216,8 +219,9 @@ static func _on_fell_out_of_map(sim: GameSim) -> void:
 	var level: LevelGrid = sim.level
 	boss.durability -= 1
 	if boss.durability > 0:
-		# Back to the top for another round.
-		boss.x = BossSystem.spawn_x(level, boss.w)
+		# Back to the top for another round, over floor that can still carry it.
+		boss.x = respawn_x(level, boss.w)
+		boss.soft_landing = true
 		boss.y = BossState.SPAWN_Y
 		boss.prev_x = boss.x
 		boss.prev_y = boss.y
@@ -244,6 +248,45 @@ static func _on_fell_out_of_map(sim: GameSim) -> void:
 	BossSystem.place_trophy(
 		level, BossSystem.trophy_cell(level, TROPHY_ROW, TROPHY_COL), Tile.BOUNCY, 3
 	)
+
+
+## X position the boss drops back in at: the place nearest its usual one where
+## the floor still carries its whole width. Failing that, the place carrying
+## the most of it; with no floor left at all, the usual one.
+static func respawn_x(level: LevelGrid, boss_w: float) -> float:
+	var usual: float = BossSystem.spawn_x(level, boss_w)
+	var usual_col: int = roundi(usual / Tile.SIZE)
+	var width: int = maxi(1, ceili(boss_w / Tile.SIZE))
+	var best_col: int = -1
+	var best_support: int = 0
+	for col: int in range(1, level.cols - width):
+		var support: int = _floor_support(level, col, width)
+		var better: bool = support > best_support
+		if support == best_support and support > 0:
+			better = absi(col - usual_col) < absi(best_col - usual_col)
+		if better:
+			best_col = col
+			best_support = support
+	return usual if best_col < 0 else float(best_col) * Tile.SIZE
+
+
+## How many of the [param width] columns from [param first_col] hold the boss
+## up where it would land: the columns whose topmost solid tile is the highest
+## one under it. Zero when it would fall straight through.
+static func _floor_support(level: LevelGrid, first_col: int, width: int) -> int:
+	var landing_row: int = level.rows
+	var support: int = 0
+	for col: int in range(first_col, first_col + width):
+		for row: int in range(1, level.rows):
+			if not Tile.is_solid(level.get_cell(row, col)):
+				continue
+			if row < landing_row:
+				landing_row = row
+				support = 1
+			elif row == landing_row:
+				support += 1
+			break
+	return support
 
 
 ## Nearest occupied column in the movement direction, shared by the preview.

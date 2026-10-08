@@ -9,8 +9,13 @@ const MIN_WALL_BOUNCE_SPEED: float = 5.5
 const WALL_BOUNCE_LOCK_TICKS: int = 12
 ## A fall shorter than this (less than 1 tile) lands on bouncy blocks without bouncing.
 const MIN_BOUNCE_FALL_HEIGHT: float = Tile.SIZE - 0.05
+## Limits for bounces caused by a carried bouncy block. Bouncy tiles are not
+## limited: they always return the full height or speed.
 const MAX_FLOOR_BOUNCE_SPEED: float = 25.0
 const MAX_CEILING_BOUNCE_SPEED: float = 20.0
+## A bouncy tile sends the player this far above where the fall began, so that
+## after stepping off a ledge the bounce clears its edge and can land back on it.
+const BOUNCE_CLEARANCE: float = 3.0
 
 
 static func solve_x(sim: GameSim) -> void:
@@ -88,13 +93,17 @@ static func solve_y(sim: GameSim) -> void:
 			var bounce_speed: float
 			if block_bouncy:
 				# 彈力方塊：與下落高度完全相同的反彈，多次彈跳保持相同高度
-				bounce_speed = maxf(sqrt(fall_height) + 0.2, 5.0)
+				bounce_speed = maxf(sqrt(fall_height + BOUNCE_CLEARANCE) + 0.2, 5.0)
 				p.fall_start_y = p.y - fall_height
+				# The extra rise is not a new, higher fall: every bounce stays alike.
+				p.bounce_slack = BOUNCE_CLEARANCE + 1.0
+				p.vy = -bounce_speed
 			else:
 				# 攜帶彈力方塊在普通地面上：提供單次緩衝彈跳，隨後能正常著地站立
 				bounce_speed = maxf(sqrt(fall_height), 5.0)
 				p.fall_start_y = p.y
-			p.vy = maxf(-bounce_speed, -MAX_FLOOR_BOUNCE_SPEED)
+				p.bounce_slack = 0.0
+				p.vy = maxf(-bounce_speed, -MAX_FLOOR_BOUNCE_SPEED)
 			p.grounded = false
 			p.coyote_timer = 24
 			p.is_jumping = false
@@ -123,7 +132,7 @@ static func solve_y(sim: GameSim) -> void:
 		p.scale_y = 0.8
 		p.scale_x = 1.2
 		if bouncy_collision and original_vy <= -3.5:
-			p.vy = minf(absf(original_vy), MAX_CEILING_BOUNCE_SPEED)
+			p.vy = absf(original_vy) if block_bouncy else minf(absf(original_vy), MAX_CEILING_BOUNCE_SPEED)
 			p.is_jumping = false
 			p.coyote_timer = 24
 			sim.add_shake(absf(original_vy) * 0.3 + 1.0)

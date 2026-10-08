@@ -4,8 +4,8 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
-	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world4_solutions.json"))
-	var script: GDScript = load("res://tests/unit/test_world4_levels.gd") as GDScript
+	var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/world5_solutions.json"))
+	var script: GDScript = load("res://tests/unit/test_world5_levels.gd") as GDScript
 	var controller: RefCounted = script.new()
 	var failed: bool = false
 	var args: PackedStringArray = OS.get_cmdline_user_args()

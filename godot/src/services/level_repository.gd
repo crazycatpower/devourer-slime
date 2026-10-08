@@ -53,11 +53,11 @@ func is_custom_damaged(slot: int) -> bool:
 
 
 ## The level that [param slot] plays: the custom one if present and valid,
-## otherwise the built-in layout.
+## otherwise the level the game ships with.
 func resolve(slot: int) -> LevelData:
 	var rows: PackedStringArray = custom_rows(slot)
 	if rows.is_empty():
-		return LevelLibrary.built_in_level(slot)
+		return LevelLibrary.shipped_level(slot)
 	return LevelCodec.decode(rows)
 
 

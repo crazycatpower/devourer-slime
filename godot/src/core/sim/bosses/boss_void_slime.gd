@@ -1,6 +1,6 @@
-class_name BossWorld4
+class_name BossVoidSlime
 extends RefCounted
-## World 4 boss: a void slime with eight hungry cells around its core.
+## The void slime, boss of the fifth world: eight hungry cells around its core.
 ##
 ## Its empty cells are lethal. The player feeds it by spitting blocks into
 ## them; every landing shakes blocks loose from the ceiling, and the fight

@@ -51,7 +51,7 @@ func _test_menu() -> void:
 
 
 func _test_play_and_win() -> void:
-	_app.play_official(11)
+	_play_built_in(11)
 	await _frames(3)
 	var game: GameScreen = _screen() as GameScreen
 	_check(game != null, "choosing a level opens the game")
@@ -143,7 +143,7 @@ func _test_input_reset() -> void:
 
 
 func _test_death_and_restart() -> void:
-	_app.play_official(24)  # Original floor spike layout.
+	_play_built_in(24)  # Original floor spike layout.
 	await _frames(3)
 	var game: GameScreen = _screen() as GameScreen
 	if game == null:
@@ -165,7 +165,7 @@ func _test_death_and_restart() -> void:
 
 ## Swallows a block and spits it out again using real mouse events.
 func _test_mouse_eat_and_shoot() -> void:
-	_app.play_official(31)  # Dirt at column 5, glass at column 12.
+	_play_built_in(31)  # Dirt at column 5, glass at column 12.
 	await _frames(3)
 	var game: GameScreen = _screen() as GameScreen
 	if game == null:
@@ -249,7 +249,7 @@ func _test_editor() -> void:
 		return
 	var editor: LevelEditor = screen.get("_editor")
 	_check(not editor.is_dirty(), "a freshly opened level has no unsaved changes")
-	_check(editor.level.equals(LevelLibrary.built_in_level(23)), "the slot's level is loaded")
+	_check(editor.level.equals(LevelLibrary.shipped_level(23)), "the slot's level is loaded")
 
 	editor.set_brush(LevelEditor.Brush.BOUNCY)
 	editor.begin_stroke()
@@ -358,7 +358,7 @@ func _test_editor_test_play() -> void:
 	_check(not editor.is_dirty(), "and clears the dirty flag")
 	_check(LevelStore.get_level(23).grid.get_cell(5, 7) == Tile.BOUNCY, "the saved level is what the slot plays")
 	_check(LevelStore.delete_custom(23) == OK, "the custom level can be deleted")
-	_check(LevelStore.get_level(23).equals(LevelLibrary.built_in_level(23)), "the slot falls back to its built-in level")
+	_check(LevelStore.get_level(23).equals(LevelLibrary.shipped_level(23)), "the slot falls back to its shipped level")
 
 
 func _test_editor_view_tools() -> void:
@@ -443,6 +443,13 @@ func _test_settings() -> void:
 
 
 # --- Helpers -----------------------------------------------------------------------------
+
+## Plays the built-in layout of [param slot]. The scenarios drive fixed routes,
+## so they pin that layout in the sandboxed save instead of the shipped level.
+func _play_built_in(slot: int) -> void:
+	LevelStore.save_custom(slot, LevelLibrary.built_in_level(slot))
+	_app.play_official(slot)
+
 
 func _screen() -> Control:
 	var screens: Node = _app.get_node("%Screens")

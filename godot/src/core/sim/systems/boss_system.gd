@@ -19,25 +19,25 @@ static func update(sim: GameSim) -> void:
 		BossSteelChase.update(sim)
 		return
 	match sim.boss_kind:
-		BossState.Kind.WORLD_1:
-			BossWorld1.update(sim)
-		BossState.Kind.WORLD_2:
-			BossWorld2.update(sim)
-		BossState.Kind.WORLD_3:
-			BossWorld3.update(sim)
-		BossState.Kind.WORLD_4:
-			BossWorld4.update(sim)
+		BossState.Kind.MUD_GOLEM:
+			BossMudGolem.update(sim)
+		BossState.Kind.BOUNCY_SLIME:
+			BossBouncySlime.update(sim)
+		BossState.Kind.GLASS_SLIME:
+			BossGlassSlime.update(sim)
+		BossState.Kind.VOID_SLIME:
+			BossVoidSlime.update(sim)
 	_recover_lost_boss(sim)
 	BossCollision.resolve(sim)
 
 
 ## Preserve the fight if an expanding or destructive boss leaves the arena.
-## World 2 has its own fall-out damage mechanic; World 3 flies.
+## The bouncy slime has its own fall-out damage mechanic; the glass slime flies.
 static func _recover_lost_boss(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	if not boss.active or boss.dead or boss.y <= sim.level.pixel_height():
 		return
-	if sim.boss_kind != BossState.Kind.WORLD_1 and sim.boss_kind != BossState.Kind.WORLD_4:
+	if sim.boss_kind != BossState.Kind.MUD_GOLEM and sim.boss_kind != BossState.Kind.VOID_SLIME:
 		return
 	boss.x = spawn_x(sim.level, boss.w)
 	boss.y = BossState.SPAWN_Y

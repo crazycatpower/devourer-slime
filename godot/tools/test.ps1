@@ -41,6 +41,8 @@ function Invoke-Godot([string[]]$GodotArgs, [int]$TimeoutSec) {
         $allArgs = @('--path', "`"$projectDir`"") + $GodotArgs
         $process = Start-Process -FilePath $godot -ArgumentList $allArgs -NoNewWindow -PassThru `
             -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        # Without a cached handle, ExitCode stays empty once the process has exited.
+        $null = $process.Handle
         if (-not $process.WaitForExit($TimeoutSec * 1000)) {
             # Stop this run and the engine process it spawned, nothing else.
             & taskkill /PID $process.Id /T /F *> $null

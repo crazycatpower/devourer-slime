@@ -41,6 +41,9 @@ var coyote_timer: int = 0
 var is_jumping: bool = false
 ## Height the current fall started from; drives bounce strength.
 var fall_start_y: float = 0.0
+## How far a bounce may carry the player above [member fall_start_y] without
+## that becoming the new fall height. Keeps repeated bounces the same size.
+var bounce_slack: float = 0.0
 ## Ticks left during which horizontal input is ignored after a wall bounce.
 var wall_bounce_timer: int = 0
 ## What is left of the sideways kick from the last spit, in units per tick.
@@ -65,6 +68,7 @@ func place_at(px: float, py: float) -> void:
 	prev_x = px
 	prev_y = py
 	fall_start_y = py
+	bounce_slack = 0.0
 
 
 func set_eating_target(r: int, c: int, is_boss_cell: bool) -> void:

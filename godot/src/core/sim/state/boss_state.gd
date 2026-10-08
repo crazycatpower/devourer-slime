@@ -3,19 +3,19 @@ extends RefCounted
 ## Mutable state of a boss inside a [GameSim].
 ##
 ## Every boss owns a square grid of tile ids: the blocks it is made of or has
-## been fed. World 1 uses a large grid that grows as the boss absorbs dirt;
+## been fed. The mud golem uses a large grid that grows as the boss absorbs dirt;
 ## the other bosses use a 3x3 grid around a goal core.
 
-enum Kind { NONE, WORLD_1, WORLD_2, WORLD_3, WORLD_4, STEEL_CHASE }
-enum State { SUSPENDED, INTRO, FALLING, ACTIVE, JUMPING, CHARGING, PRE_JUMP }
+enum Kind { NONE, MUD_GOLEM, BOUNCY_SLIME, GLASS_SLIME, VOID_SLIME, STEEL_CHASE }
+enum State { SUSPENDED, INTRO, FALLING, ACTIVE, JUMPING, CHARGING, PRE_JUMP, STUNNED }
 enum JumpType { NORMAL, BIG, SMALL, PRECISION, COMBO, MEGA }
 
 ## Column the boss hangs above before it is triggered.
 const SPAWN_COLUMN: int = 24
 const SPAWN_Y: float = -150.0
 const BODY_SIZE: float = 120.0
-const WORLD_1_GRID_SIZE: int = 21
-const WORLD_1_CENTER: int = 10
+const MUD_GOLEM_GRID_SIZE: int = 21
+const MUD_GOLEM_CENTER: int = 10
 const MAX_DURABILITY: int = 3
 const SHIELD_ORBIT_RADIUS: float = 85.0
 
@@ -40,7 +40,7 @@ var damage_flash: float = 0.0
 var grid_size: int = 3
 ## Row-major tile ids, [member grid_size] squared entries.
 var grid: PackedInt32Array = PackedInt32Array()
-## Bounding box of the occupied cells and the core cell (World 1 keeps these
+## Bounding box of the occupied cells and the core cell (the mud golem keeps these
 ## up to date as the body changes shape).
 var min_r: int = 0
 var min_c: int = 0
@@ -56,6 +56,9 @@ var intro_duration: int = 0
 ## The player is held in place during the entrance that opens the fight, but
 ## not when a boss comes back in the middle of it.
 var intro_freezes_player: bool = true
+## Set while a boss drops back in after falling out: that landing is gentle
+## and leaves the floor as it is.
+var soft_landing: bool = false
 var action_count: int = 0
 var combo_count: int = 0
 var jump_type: JumpType = JumpType.NORMAL
@@ -66,23 +69,39 @@ var pre_jump_timer: int = 0
 var max_pre_jump_timer: int = 0
 var target_vx: float = 0.0
 var target_vy: float = 0.0
-## 0..1 progress of the player devouring the fully fed World 4 boss.
+## 0..1 progress of the player devouring the fully fed void slime.
 var eating_progress: float = 0.0
 
-# World 1: body rearrangement.
+# Mud golem: body rearrangement.
 var reorg_timer: int = 0
 var reorg_cells: Array[ReorgAnimCell] = []
 var has_initial_reorg: bool = false
 var has_initialized_reorg_grid: bool = false
 
-# World 2 and 3: hit points; World 2: bounces left in the current leap.
+# Bouncy and glass slimes: hit points; bouncy slime: bounces left in the current leap.
 var has_durability: bool = false
 var durability: int = MAX_DURABILITY
 var bounces_remaining: int = 0
 
-# World 3: orbiting glass shields and the volley fired once they are gone.
+# Glass slime: orbiting glass shields, the move in hand and the bombs in play.
 var shields: Array[ShieldState] = []
-var dirt_shots_fired: int = 0
+## The [enum BossGlassSlime.Move] being announced or carried out.
+var current_move: int = 0
+## Slam: left edge of the marked column and the Y it comes to rest on.
+## Swoop: left edge of the arc's low point and the Y of the body's underside there.
+var dive_x: float = 0.0
+var dive_floor_y: float = 0.0
+## Top-left of the body at each end of the swoop, and how far along it is, 0..1.
+var swoop_from: Vector2 = Vector2.ZERO
+var swoop_to: Vector2 = Vector2.ZERO
+var swoop_progress: float = 0.0
+var bombs: Array[GlassBomb] = []
+## Short core recovery after a hit; queued shots cannot skip damage phases.
+var glass_hit_recovery: int = 0
+## Dedicated arena stream: extending terrain cannot change attack randomness.
+var glass_arena_rng: SimRandom = null
+## First row of the arena's fill; everything above it is open.
+var arena_fill_row: int = 0
 
 
 ## Boss in its pre-fight state for [param p_kind]. [constant Kind.NONE]
@@ -102,26 +121,26 @@ static func create(p_kind: Kind) -> BossState:
 	boss.prev_x = boss.x
 	boss.prev_y = boss.y
 
-	if p_kind == Kind.WORLD_1:
+	if p_kind == Kind.MUD_GOLEM:
 		boss.w = Tile.SIZE
 		boss.h = Tile.SIZE
-		boss.grid_size = WORLD_1_GRID_SIZE
-		boss.grid.resize(WORLD_1_GRID_SIZE * WORLD_1_GRID_SIZE)
-		boss.min_r = WORLD_1_CENTER
-		boss.min_c = WORLD_1_CENTER
-		boss.max_r = WORLD_1_CENTER
-		boss.max_c = WORLD_1_CENTER
-		boss.center_r = WORLD_1_CENTER
-		boss.center_c = WORLD_1_CENTER
+		boss.grid_size = MUD_GOLEM_GRID_SIZE
+		boss.grid.resize(MUD_GOLEM_GRID_SIZE * MUD_GOLEM_GRID_SIZE)
+		boss.min_r = MUD_GOLEM_CENTER
+		boss.min_c = MUD_GOLEM_CENTER
+		boss.max_r = MUD_GOLEM_CENTER
+		boss.max_c = MUD_GOLEM_CENTER
+		boss.center_r = MUD_GOLEM_CENTER
+		boss.center_c = MUD_GOLEM_CENTER
 	else:
 		boss.grid.resize(9)
-		if p_kind == Kind.WORLD_2:
+		if p_kind == Kind.BOUNCY_SLIME:
 			boss.grid.fill(Tile.BOUNCY)
 	boss.set_cell(boss.center_r, boss.center_c, Tile.GOAL)
 
-	if p_kind == Kind.WORLD_2 or p_kind == Kind.WORLD_3:
+	if p_kind == Kind.BOUNCY_SLIME or p_kind == Kind.GLASS_SLIME:
 		boss.has_durability = true
-	if p_kind == Kind.WORLD_3:
+	if p_kind == Kind.GLASS_SLIME:
 		boss.shields = make_shield_ring(4)
 	return boss
 

@@ -55,6 +55,34 @@ func duplicate_grid() -> LevelGrid:
 	return copy
 
 
+## Adds [param count] rows of [param fill] below the last one.
+func append_rows(count: int, fill: int = Tile.AIR) -> void:
+	if count <= 0:
+		return
+	var old_size: int = _cells.size()
+	rows += count
+	_cells.resize(cols * rows)
+	for i: int in range(old_size, _cells.size()):
+		_cells[i] = fill
+
+
+## Changes whenever a cell does; cheap enough to ask for every frame.
+func content_hash() -> int:
+	return hash(_cells)
+
+
+## Hash of the cells in rows [param first_row] up to [param end_row] and
+## columns [param first_col] up to [param end_col] (ends excluded). The part
+## outside the grid is ignored.
+func region_hash(first_row: int, first_col: int, end_row: int, end_col: int) -> int:
+	var from_col: int = clampi(first_col, 0, cols)
+	var to_col: int = clampi(end_col, 0, cols)
+	var result: int = 17
+	for r: int in range(clampi(first_row, 0, rows), clampi(end_row, 0, rows)):
+		result = hash([result, _cells.slice(r * cols + from_col, r * cols + to_col)])
+	return result
+
+
 func equals(other: LevelGrid) -> bool:
 	return other != null and cols == other.cols and rows == other.rows and _cells == other._cells
 

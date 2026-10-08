@@ -3,9 +3,6 @@ extends WorldLayer
 ## The player slime: a squashy rounded body, the block it carries, eyes that
 ## follow the aim, and its reactions (head-bump streaks, dizzy stars, sweat).
 
-const BODY: Texture2D = preload("res://assets/art/slime-square-v2.png")
-## Measured opaque bounds; faint alpha noise outside these bounds is padding.
-const BODY_REGION: Rect2 = Rect2(107.0, 135.0, 1041.0, 983.0)
 const CARRIED_SIZE: float = 20.0
 const GAUGE_WIDTH: float = 36.0
 const GAUGE_HEIGHT: float = 4.0
@@ -32,26 +29,6 @@ const SWEAT_SHAPE: Array[Rect2] = [
 	Rect2(-3.0, 0.0, 6.0, 2.5), Rect2(-2.0, 2.5, 4.0, 1.5),
 ]
 
-const SLIME_TINT_SHADER: String = """
-shader_type canvas_item;
-
-uniform vec4 tint_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
-uniform float tint_strength : hint_range(0.0, 1.0) = 0.0;
-
-void fragment() {
-	vec4 tex = texture(TEXTURE, UV);
-	ivec2 sz = textureSize(TEXTURE, 0);
-	if (sz.x > 32 && tint_strength > 0.0) {
-		float lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-		vec3 tinted = lum * tint_color.rgb * 1.45;
-		COLOR = vec4(mix(tex.rgb, tinted, tint_strength), tex.a) * COLOR;
-	} else {
-		COLOR = tex * COLOR;
-	}
-}
-"""
-
-
 class LandingDust:
 	var pos: Vector2
 	var vel: Vector2
@@ -67,29 +44,13 @@ var _look: Vector2 = Vector2.ZERO
 var _was_grounded: bool = false
 var _prev_player_vy: float = 0.0
 var _dust_particles: Array[LandingDust] = []
-var _tint_material: ShaderMaterial
 var _current_tint_color: Color = Palette.GREEN_500
 var _current_tint_strength: float = 0.0
-
-
-func _ready() -> void:
-	_ensure_material()
-
-
-func _ensure_material() -> void:
-	if _tint_material != null:
-		return
-	var shader: Shader = Shader.new()
-	shader.code = SLIME_TINT_SHADER
-	_tint_material = ShaderMaterial.new()
-	_tint_material.shader = shader
-	material = _tint_material
 
 
 func _process(delta: float) -> void:
 	if view == null or view.sim == null:
 		return
-	_ensure_material()
 	if view.sim != _last_sim or view.sim.tick_count < _last_tick:
 		_motion.reset()
 		_look = Vector2.ZERO
@@ -149,10 +110,6 @@ func _process(delta: float) -> void:
 		_current_tint_strength = move_toward(_current_tint_strength, target_strength, dt * 6.0)
 	else:
 		_current_tint_strength = move_toward(_current_tint_strength, 0.0, dt * 4.0)
-
-	if _tint_material != null:
-		_tint_material.set_shader_parameter("tint_color", _current_tint_color)
-		_tint_material.set_shader_parameter("tint_strength", _current_tint_strength)
 
 	var daze_age_before: float = _motion.daze_age if _motion.daze > 0.0 else 0.0
 	_motion.advance(
@@ -264,7 +221,11 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	p.translate(wall * (w * 0.5 - w * 0.54 * _motion.body_scale.x), -head_pin)
 	p.scale(_motion.body_scale.x, _motion.body_scale.y)
 	p.fill_rect(-w * 0.45, -2.0, w * 0.9, 4.0, Color(0.0, 0.0, 0.0, 0.3))
-	p.ci.draw_texture_rect_region(BODY, Rect2(-w * 0.54, -h * 1.08, w * 1.08, h * 1.08), BODY_REGION)
+	p.push()
+	p.translate(-w * 0.54, -h * 1.08)
+	p.scale(w * 1.08 / 40.0, h * 1.08 / 40.0)
+	SlimeFace.paint_body(p, _current_tint_color, _current_tint_strength)
+	p.pop()
 
 	if player.has_block:
 		_paint_carried_block(p, player)
@@ -302,29 +263,14 @@ func _paint_bullet_time_gauge(p: Painter, center_x: float, y: float) -> void:
 func _paint_carried_block(p: Painter, player: PlayerState) -> void:
 	var bx: float = -CARRIED_SIZE / 2.0
 	var by: float = -player.h / 2.0 - CARRIED_SIZE / 2.0 + sin(view.time_ms * 0.006) * 0.8
-	var worn: int = player.carried_block_eaten_count
-	var fill: Color
-	var border: Color
-	if player.carried_block_type == Tile.GLASS:
-		fill = Color(Palette.CYAN_600, 0.6)
-		border = Palette.CYAN_200
-		p.fill_rect(bx, by, CARRIED_SIZE, CARRIED_SIZE, fill)
-		p.stroke_rect(bx + 0.5, by + 0.5, CARRIED_SIZE - 1.0, CARRIED_SIZE - 1.0, border, 1.5)
-		p.line(bx + 3.0, by + 3.0, bx + CARRIED_SIZE - 3.0, by + CARRIED_SIZE - 3.0, Color(Palette.WHITE, 0.7), 1.0)
-	elif player.carried_block_type == Tile.BOUNCY:
-		fill = Palette.PINK_900 if worn >= 2 else Palette.PINK_700
-		border = Palette.GREEN_500 if worn >= 2 else Palette.PINK_200
-		p.fill_rect(bx, by, CARRIED_SIZE, CARRIED_SIZE, fill)
-		p.stroke_rect(bx + 0.5, by + 0.5, CARRIED_SIZE - 1.0, CARRIED_SIZE - 1.0, border, 1.5)
-		p.stroke_circle(bx + CARRIED_SIZE * 0.5, by + CARRIED_SIZE * 0.5, 4.0, border, 1.2)
-	else:
-		fill = Palette.AMBER_900 if worn >= 2 else Palette.AMBER_700
-		border = Palette.GREEN_500 if worn >= 2 else Palette.AMBER_500
-		p.fill_rect(bx, by, CARRIED_SIZE, CARRIED_SIZE, fill)
-		p.stroke_rect(bx + 0.5, by + 0.5, CARRIED_SIZE - 1.0, CARRIED_SIZE - 1.0, border, 1.5)
+	# Drawn like the block it becomes when spat out, worn state included.
+	var type: int = player.carried_block_type
+	if player.carried_block_eaten_count >= 2 and type != Tile.GLASS:
+		type = Tile.BOUNCY_EATEN_2 if Tile.is_bouncy(type) else Tile.DIRT_EATEN_2
+	TilePainter.draw_projectile(p, type, bx, by, CARRIED_SIZE, CARRIED_SIZE)
 	var bubble_pulse: float = 0.35 + sin(view.time_ms * 0.007) * 0.1
 	var bubble_color: Color = _current_tint_color if player.has_block else Palette.GREEN_600
-	p.fill_rect(bx + 3.0, by + 3.0, CARRIED_SIZE - 6.0, CARRIED_SIZE - 6.0, Color(bubble_color, bubble_pulse))
+	p.fill_round_rect(bx + 3.0, by + 3.0, CARRIED_SIZE - 6.0, CARRIED_SIZE - 6.0, 3.0, Color(bubble_color, bubble_pulse))
 
 
 func _paint_eyes(p: Painter, sim: GameSim) -> void:

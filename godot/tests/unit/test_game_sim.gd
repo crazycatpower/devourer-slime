@@ -218,27 +218,27 @@ func test_boss_setup() -> void:
 	check(steel.boss.active)
 	check_eq(steel.boss_kind, BossState.Kind.STEEL_CHASE)
 
-	var world_1: GameSim = _sim(20)
-	check(world_1.boss.active)
-	check_eq(world_1.boss.state, BossState.State.SUSPENDED)
-	check_eq(world_1.boss.grid_size, 21)
-	check_eq(world_1.boss.cell(10, 10), Tile.GOAL)
-	check_near(world_1.boss.w, Tile.SIZE)
+	var mud_golem: GameSim = _sim(20)
+	check(mud_golem.boss.active)
+	check_eq(mud_golem.boss.state, BossState.State.SUSPENDED)
+	check_eq(mud_golem.boss.grid_size, 21)
+	check_eq(mud_golem.boss.cell(10, 10), Tile.GOAL)
+	check_near(mud_golem.boss.w, Tile.SIZE)
 	var mound: int = 0
 	for r: int in range(11, 14):
 		for c: int in range(21, 29):
-			if world_1.level.get_cell(r, c) == Tile.DIRT:
+			if mud_golem.level.get_cell(r, c) == Tile.DIRT:
 				mound += 1
 	check_eq(mound, 24, "the mound the boss feeds on")
 
-	var world_2: GameSim = _sim(30)
-	check_eq(world_2.boss.filled_count(), 8, "shielded by bouncy blocks")
-	check_eq(world_2.boss.durability, 3)
-	var world_3: GameSim = _sim(40)
-	check_eq(world_3.boss.shields.size(), 4)
-	var world_4: GameSim = _sim(50)
-	check_eq(world_4.boss.filled_count(), 0)
-	check(not world_4.boss.is_filled())
+	var bouncy_slime: GameSim = _sim(30)
+	check_eq(bouncy_slime.boss.filled_count(), 8, "shielded by bouncy blocks")
+	check_eq(bouncy_slime.boss.durability, 3)
+	var glass_slime: GameSim = _sim(40)
+	check_eq(glass_slime.boss.shields.size(), 4)
+	var void_slime: GameSim = _sim(50)
+	check_eq(void_slime.boss.filled_count(), 0)
+	check(not void_slime.boss.is_filled())
 
 
 func test_boss_wakes_when_the_player_comes_near() -> void:
@@ -259,7 +259,7 @@ func test_boss_wakes_when_the_player_comes_near() -> void:
 	check_near(sim.player.x, x, 1e-9)
 
 
-func test_world_1_boss_phase_profile_escalates() -> void:
+func test_mud_golem_phase_profile_escalates() -> void:
 	var sim: GameSim = _sim(20)
 	var boss: BossState = sim.boss
 	for i: int in boss.grid.size():
@@ -269,14 +269,14 @@ func test_world_1_boss_phase_profile_escalates() -> void:
 	boss.set_cell(9, 10, Tile.DIRT)
 	boss.set_cell(10, 11, Tile.DIRT)
 	boss.set_cell(11, 10, Tile.DIRT)
-	var early: Dictionary = BossWorld1.phase_profile(sim)
+	var early: Dictionary = BossMudGolem.phase_profile(sim)
 	var early_phase: int = early["phase"]
 	check_eq(early_phase, 0, "early pressure is the gentle opening")
 
 	for i: int in boss.grid.size():
 		boss.grid[i] = Tile.DIRT
 	boss.set_cell(10, 10, Tile.GOAL)
-	var late: Dictionary = BossWorld1.phase_profile(sim)
+	var late: Dictionary = BossMudGolem.phase_profile(sim)
 	var late_phase: int = late["phase"]
 	check_eq(late_phase, 2, "a fully fed boss enters frenzy mode")
 
@@ -344,7 +344,7 @@ func test_boss_arena_writes_stay_inside_small_levels() -> void:
 	# Web defect: boss code wrote to fixed coordinates, which broke on custom
 	# levels smaller than the stock arena.
 	var small: LevelData = LevelLibrary.built_in_level(11)  # 20 x 15.
-	for kind: BossState.Kind in [BossState.Kind.WORLD_1, BossState.Kind.WORLD_2, BossState.Kind.WORLD_3]:
+	for kind: BossState.Kind in [BossState.Kind.MUD_GOLEM, BossState.Kind.BOUNCY_SLIME, BossState.Kind.GLASS_SLIME]:
 		var sim: GameSim = GameSim.new()
 		sim.rng.set_seed(3)
 		sim.load_level(10, small, kind)
@@ -352,7 +352,7 @@ func test_boss_arena_writes_stay_inside_small_levels() -> void:
 		for r: int in sim.level.rows:
 			check_eq(sim.level.get_cell(r, 19), Tile.STEEL, "right border intact")
 	var sim_2: GameSim = GameSim.new()
-	sim_2.load_level(20, small, BossState.Kind.WORLD_2)
+	sim_2.load_level(20, small, BossState.Kind.BOUNCY_SLIME)
 	sim_2.boss.state = BossState.State.ACTIVE
 	sim_2.boss.durability = 1
 	sim_2.boss.y = sim_2.level.pixel_height() + 10.0
@@ -543,7 +543,7 @@ func test_boss_leap_lands_where_it_aimed_despite_the_ceiling() -> void:
 	# boss stops rising at the ceiling, so high leaps covered about half the
 	# intended distance.
 	check_near(BossSystem.leap_flight_ticks(440.0, 4.0, 0.2), 39.0, 1e-9, "a low hop flies freely")
-	var clipped: float = BossSystem.leap_flight_ticks(440.0, 11.5 * 1.732, BossWorld4.GRAVITY)
+	var clipped: float = BossSystem.leap_flight_ticks(440.0, 11.5 * 1.732, BossVoidSlime.GRAVITY)
 	check(clipped < 100.0, "a high leap is cut short by the ceiling (%d ticks)" % int(clipped))
 
 	for sim_seed: int in [1, 2, 3, 4, 5, 6]:
@@ -607,18 +607,18 @@ func test_retry_shortens_the_boss_entrance() -> void:
 	var right: SimInput = SimInput.new()
 	right.right = true
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
-	check_eq(sim.boss.intro_timer, BossWorld4.INTRO_TICKS, "the first entrance is shown in full")
+	check_eq(sim.boss.intro_timer, BossVoidSlime.INTRO_TICKS, "the first entrance is shown in full")
 
 	sim.reset()
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
 	check_eq(sim.boss.intro_timer, BossSystem.RETRY_INTRO_TICKS, "a retry gets the short one")
 
-	sim.load_level(50, LevelLibrary.built_in_level(50), BossState.Kind.WORLD_4)
+	sim.load_level(50, LevelLibrary.built_in_level(50), BossState.Kind.VOID_SLIME)
 	_run_until_boss_state(sim, right, BossState.State.INTRO)
-	check_eq(sim.boss.intro_timer, BossWorld4.INTRO_TICKS, "loading the level afresh starts over")
+	check_eq(sim.boss.intro_timer, BossVoidSlime.INTRO_TICKS, "loading the level afresh starts over")
 
 
-func test_player_keeps_control_when_the_world_2_boss_returns() -> void:
+func test_player_keeps_control_when_the_bouncy_slime_returns() -> void:
 	# Web defect: the boss floating back in froze the player for two seconds,
 	# in an arena whose floor has holes by then.
 	var sim: GameSim = _sim(30)
@@ -635,6 +635,38 @@ func test_player_keeps_control_when_the_world_2_boss_returns() -> void:
 	right.right = true
 	_run(sim, right, 10)
 	check(sim.player.x - x > GameConstants.MAX_SPEED * 8.0, "the player can still accelerate and walk during reentry")
+
+
+func test_bouncy_slime_returns_over_floor_and_lands_gently() -> void:
+	var sim: GameSim = _sim(30)
+	_run(sim, SimInput.new(), 60)
+	var boss: BossState = sim.boss
+	var level: LevelGrid = sim.level
+	var usual_col: int = roundi(BossSystem.spawn_x(level, boss.w) / Tile.SIZE)
+	# Knock out everything under the usual place, so nothing carries it there.
+	for col: int in range(usual_col - 1, usual_col + 4):
+		for row: int in range(1, level.rows):
+			level.set_cell(row, col, Tile.AIR)
+	boss.state = BossState.State.ACTIVE
+	boss.y = level.pixel_height() + 10.0
+	sim.step(SimInput.new())
+	check_eq(boss.durability, 2)
+	var col: int = roundi(boss.x / Tile.SIZE)
+	check(col != usual_col, "it does not come back over the hole")
+	check(absi(col - usual_col) <= 4, "it picks the nearest place with floor")
+	var before: LevelGrid = level.duplicate_grid()
+	_run_until_boss_state(sim, SimInput.new(), BossState.State.ACTIVE)
+	check_eq(boss.state, BossState.State.ACTIVE, "it lands instead of falling through")
+	check_eq(boss.durability, 2, "and loses nothing more")
+	check(level.equals(before), "the landing leaves the floor intact")
+	check(not boss.soft_landing, "only that one landing is gentle")
+
+
+func test_bouncy_slime_respawn_falls_back_to_the_usual_place() -> void:
+	var bare: LevelGrid = LevelGrid.new(40, 15)
+	check_eq(BossBouncySlime.respawn_x(bare, BossState.BODY_SIZE), BossSystem.spawn_x(bare, BossState.BODY_SIZE), "no floor anywhere")
+	var full: LevelGrid = LevelLibrary.built_in_level(30).grid
+	check_eq(BossBouncySlime.respawn_x(full, BossState.BODY_SIZE), BossSystem.spawn_x(full, BossState.BODY_SIZE), "an intact floor keeps the usual place")
 
 
 func _run_until_boss_state(sim: GameSim, inp: SimInput, state: BossState.State) -> void:
@@ -780,8 +812,138 @@ func test_bouncy_block_returns_to_exact_fall_height_and_sustains_bounces() -> vo
 
 	check(apex_list.size() >= 5, "bounces multiple times continuously (got %d bounces)" % apex_list.size())
 	for i: int in apex_list.size():
-		check_near(apex_list[i], initial_y, 0.5, "bounce %d apex matches exact drop height" % (i + 1))
+		check(apex_list[i] < initial_y, "bounce %d clears the drop height" % (i + 1))
+		check_near(apex_list[i], initial_y - Collision.BOUNCE_CLEARANCE, 0.6, "bounce %d apex is just above the drop height" % (i + 1))
 	check_near(apex_list[4], apex_list[0], 0.1, "repeated bounces maintain identical apex height")
+
+
+func test_bouncy_block_returns_a_tall_fall_in_full() -> void:
+	# A speed limit used to cut the rebound of falls above about 15 tiles.
+	for tiles: float in [16.0, 30.0, 100.0]:
+		var sim: GameSim = GameSim.new()
+		var level: LevelGrid = LevelGrid.new(15, 120)
+		for c: int in 15:
+			level.set_cell(110, c, Tile.BOUNCY)
+		sim.level = level
+		var floor_y: float = 110.0 * Tile.SIZE - 28.0 - 0.001
+		var initial_y: float = floor_y - tiles * Tile.SIZE
+		sim.player.x = 5.0 * Tile.SIZE
+		sim.player.y = initial_y
+		sim.player.w = 28.0
+		sim.player.h = 28.0
+		sim.player.grounded = false
+		sim.player.fall_start_y = initial_y
+
+		var bounced: bool = false
+		var apex_y: float = INF
+		for _tick: int in 3000:
+			var vy_prev: float = sim.player.vy
+			sim.step(SimInput.new())
+			if vy_prev > 0.0 and sim.player.vy < 0.0:
+				if bounced:
+					break
+				bounced = true
+			if bounced:
+				apex_y = minf(apex_y, sim.player.y)
+		check_near(apex_y, initial_y - Collision.BOUNCE_CLEARANCE, 0.6, "a %d-tile fall bounces back to just above its start" % int(tiles))
+
+
+func test_being_squeezed_into_a_wall_kills() -> void:
+	var standing: GameSim = _sim(23)
+	_run(standing, SimInput.new(), 120)
+	check(standing.player.grounded and not standing.player.dead, "standing on the floor is not being crushed")
+	var right: SimInput = SimInput.new()
+	right.right = true
+	_run(standing, right, 600)
+	check(not standing.player.dead, "nor is walking into a wall")
+
+	# One block appearing under the player just lifts them onto it.
+	var lifted: GameSim = _sim(23)
+	_run(lifted, SimInput.new(), 120)
+	var lifted_row: int = Tile.cell_of(lifted.player.center_y())
+	var lifted_col: int = Tile.cell_of(lifted.player.center_x())
+	lifted.level.set_cell(lifted_row, lifted_col, Tile.GLASS)
+	_run(lifted, SimInput.new(), 5)
+	check(not lifted.player.dead, "with room above, the player is pushed up, not crushed")
+
+	# With something solid above as well there is nowhere to go.
+	var buried: GameSim = _sim(23)
+	_run(buried, SimInput.new(), 120)
+	var player: PlayerState = buried.player
+	var row: int = Tile.cell_of(player.center_y())
+	var col: int = Tile.cell_of(player.center_x())
+	buried.level.set_cell(row, col, Tile.GLASS)
+	buried.level.set_cell(row - 1, col, Tile.GLASS)
+	_run(buried, SimInput.new(), 5)
+	check(player.dead, "squeezed between two blocks, the player is crushed")
+
+	# Only the edge of the body is inside a block: collision pushes it out.
+	var grazed: GameSim = _sim(23)
+	_run(grazed, SimInput.new(), 120)
+	var side_row: int = Tile.cell_of(grazed.player.center_y())
+	var side_col: int = Tile.cell_of(grazed.player.x + grazed.player.w + 3.0)
+	if grazed.level.get_cell(side_row, side_col) == Tile.AIR:
+		grazed.level.set_cell(side_row, side_col, Tile.STEEL)
+		grazed.player.x = float(side_col) * Tile.SIZE - grazed.player.w + 3.0
+		grazed.step(SimInput.new())
+		check(not grazed.player.dead, "a shallow overlap is not a crush")
+
+
+func test_bounce_returns_onto_the_ledge_stepped_off() -> void:
+	# A steel pillar three tiles tall beside a bouncy floor.
+	var level: LevelGrid = LevelGrid.new(15, 15)
+	for c: int in 15:
+		level.set_cell(12, c, Tile.BOUNCY if c >= 5 else Tile.STEEL)
+	for r: int in range(9, 12):
+		level.set_cell(r, 4, Tile.STEEL)
+	var sim: GameSim = GameSim.new()
+	sim.level = level
+	var top_y: float = 9.0 * Tile.SIZE - sim.player.h - Collision.SKIN
+	sim.player.place_at(4.0 * Tile.SIZE + 6.0, top_y)
+	sim.player.grounded = true
+
+	var right: SimInput = SimInput.new()
+	right.right = true
+	var left: SimInput = SimInput.new()
+	left.left = true
+	var bounced: bool = false
+	var left_ledge: bool = false
+	var returned: bool = false
+	for _tick: int in 400:
+		var vy_prev: float = sim.player.vy
+		sim.step(left if bounced else right)
+		if not sim.player.grounded:
+			left_ledge = true
+		if vy_prev > 0.0 and sim.player.vy < 0.0:
+			bounced = true
+		if bounced and sim.player.grounded:
+			returned = absf(sim.player.y - top_y) < 1.0
+			break
+	check(left_ledge and bounced, "the player walked off and hit the bouncy floor")
+	check(returned, "one bounce carries the player back onto the ledge")
+
+
+func test_bouncy_ceiling_returns_the_full_speed() -> void:
+	var sim: GameSim = GameSim.new()
+	var level: LevelGrid = LevelGrid.new(15, 15)
+	for c: int in 15:
+		level.set_cell(2, c, Tile.BOUNCY)
+	sim.level = level
+	sim.player.x = 5.0 * Tile.SIZE
+	sim.player.y = 3.0 * Tile.SIZE + 20.0
+	sim.player.w = 28.0
+	sim.player.h = 28.0
+	sim.player.grounded = false
+	sim.player.vy = -40.0
+	var speed_in: float = 0.0
+	for _tick: int in 5:
+		var vy_prev: float = sim.player.vy
+		sim.step(SimInput.new())
+		if vy_prev < 0.0 and sim.player.vy > 0.0:
+			speed_in = absf(vy_prev) - GameConstants.GRAVITY * GameConstants.AIR_STEP
+			break
+	check(speed_in > 30.0, "the ceiling was hit at speed")
+	check_near(sim.player.vy, speed_in, 0.01, "a bouncy ceiling keeps all of the speed")
 
 
 func test_bounce_ignored_when_fall_height_under_one_tile() -> void:

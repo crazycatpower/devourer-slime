@@ -105,7 +105,7 @@ func run() -> void:
 		await _wait(0.3)
 		await _shot("campaign_world5_menu")
 		var routes: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/campaign_solutions.json"))
-		var controller_script: GDScript = load("res://tests/unit/test_world4_levels.gd") as GDScript
+		var controller_script: GDScript = load("res://tests/unit/test_world5_levels.gd") as GDScript
 		var controller: RefCounted = controller_script.new()
 		for stage: int in [31, 33, 36, 38, 39, 41, 45, 49]:
 			_app.play_official(stage)
@@ -386,11 +386,11 @@ func _boss_shots(slot: int, name_prefix: String) -> void:
 	await _wait(2.2)
 	await _shot(name_prefix + "_fight")
 	match sim.boss_kind:
-		BossState.Kind.WORLD_2:
+		BossState.Kind.BOUNCY_SLIME:
 			sim.boss.cooldown = 1
 			await _wait(1.6)
 			await _shot(name_prefix + "_charging")
-		BossState.Kind.WORLD_4:
+		BossState.Kind.VOID_SLIME:
 			for r: int in 3:
 				for c: int in 3:
 					if (r != 1 or c != 1) and (r + c) % 2 == 0:
@@ -399,11 +399,11 @@ func _boss_shots(slot: int, name_prefix: String) -> void:
 			sim.boss.cooldown = 1
 			await _wait(1.8)
 			await _shot(name_prefix + "_ultimate_charge")
-		BossState.Kind.WORLD_3:
+		BossState.Kind.GLASS_SLIME:
 			sim.boss.cooldown = 1
 			await _wait(0.5)
 			await _shot(name_prefix + "_shield_detaching")
-		BossState.Kind.WORLD_1:
+		BossState.Kind.MUD_GOLEM:
 			await _wait(1.5)
 			await _shot(name_prefix + "_later")
 

@@ -1,8 +1,8 @@
 // Explicitly requested full campaign redesign. Original exports remain recoverable.
 import {readFileSync,writeFileSync} from 'node:fs';
-import './build_world4.mjs';
+import './build_world5.mjs';
 const base=new URL('../',import.meta.url);
-const w4=JSON.parse(readFileSync(new URL('data/levels/world4_levels.json',base)));
+const w4=JSON.parse(readFileSync(new URL('data/levels/world5_levels.json',base)));
 const slots={},solutions={};
 function room(slot,width){
  const a=Array.from({length:15},(_,r)=>Array.from({length:width},(_,c)=>r===0||r===14||c===0||c===width-1?'@':'.'));
@@ -27,7 +27,7 @@ function room(slot,width){
 for(let slot=41;slot<=49;slot++){
  slots[slot]=w4.slots[slot];
 }
-Object.assign(solutions,JSON.parse(readFileSync(new URL('tests/fixtures/world4_solutions.json',base))));
+Object.assign(solutions,JSON.parse(readFileSync(new URL('tests/fixtures/world5_solutions.json',base))));
 // World 1 (Steel): ten actual combination stages, with safe staging between challenges.
 for(let n=1;n<=10;n++){
  const width=n>=8?50+n: n>=4?49:39;
