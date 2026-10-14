@@ -34,6 +34,9 @@ static func problem_with(rows: PackedStringArray) -> String:
 ## it is not an array made only of strings.
 static func rows_from_json(value: Variant) -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
+	if value is Dictionary:
+		var document: Dictionary = value
+		return rows_from_json(document.get("rows", null))
 	if not value is Array:
 		return out
 	var list: Array = value
@@ -42,3 +45,37 @@ static func rows_from_json(value: Variant) -> PackedStringArray:
 			return PackedStringArray()
 		out.append(item as String)
 	return out
+
+
+static func problem_with_document(value: Variant) -> String:
+	var rows: PackedStringArray = rows_from_json(value)
+	var problem: String = problem_with(rows)
+	if not problem.is_empty():
+		return problem
+	if value is Dictionary:
+		var document: Dictionary = value
+		for layer: String in ["wires", "sensors", "rails"]:
+			var label: String = "連線" if layer == "wires" else ("軌道" if layer == "rails" else "感測器")
+			var wire_value: Variant = document.get(layer, [])
+			if not wire_value is Array:
+				return "%s資料格式錯誤。" % label
+			var wires: Array = wire_value
+			if wires.size() > rows.size() * rows[0].length():
+				return "%s資料格式錯誤。" % label
+			for pair: Variant in wires:
+				if not pair is Array:
+					return "%s座標格式錯誤。" % label
+				var coordinates: Array = pair
+				if coordinates.size() != (3 if layer == "rails" else 2):
+					return "%s座標格式錯誤。" % label
+				for coordinate: Variant in coordinates:
+					if not (coordinate is int or coordinate is float):
+						return "%s座標必須是整數。" % label
+					var number: float = coordinate as float
+					if not is_finite(number) or number != floorf(number):
+						return "%s座標必須是整數。" % label
+				if layer == "rails" and not Tile.is_rail(coordinates[2] as int):
+					return "軌道方向格式錯誤。"
+				if coordinates[0] < 0 or coordinates[0] >= rows[0].length() or coordinates[1] < 0 or coordinates[1] >= rows.size():
+					return "%s座標超出關卡範圍。" % label
+	return ""

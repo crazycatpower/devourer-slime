@@ -6,7 +6,7 @@ extends RefCounted
 ## been fed. The mud golem uses a large grid that grows as the boss absorbs dirt;
 ## the other bosses use a 3x3 grid around a goal core.
 
-enum Kind { NONE, MUD_GOLEM, BOUNCY_SLIME, GLASS_SLIME, VOID_SLIME, STEEL_CHASE }
+enum Kind { NONE, MUD_GOLEM, BOUNCY_SLIME, GLASS_SLIME, VOID_SLIME, STEEL_CHASE, SENSOR_SENTINEL, ICE_SKATER, SAND_COLOSSUS, RAIL_CARRIER, TNT_FURNACE }
 enum State { SUSPENDED, INTRO, FALLING, ACTIVE, JUMPING, CHARGING, PRE_JUMP, STUNNED }
 enum JumpType { NORMAL, BIG, SMALL, PRECISION, COMBO, MEGA }
 
@@ -18,6 +18,25 @@ const MUD_GOLEM_GRID_SIZE: int = 21
 const MUD_GOLEM_CENTER: int = 10
 const MAX_DURABILITY: int = 3
 const SHIELD_ORBIT_RADIUS: float = 85.0
+
+## State shared by the five mechanism bosses; each uses a different attack.
+class MechanismData:
+	var origin: Vector2 = Vector2.ZERO
+	var target: Vector2 = Vector2.ZERO
+	var floor_y: float = 0.0
+	var age: int = 0
+	var recovery: int = 0
+	var supply_timer: int = 0
+	var path: PackedVector2Array = PackedVector2Array()
+	var path_index: int = 0
+	var progress: int = 0
+	var dock_timer: int = 0
+	var signal_ready: bool = false
+	var core_stolen: bool = false
+	var covered_ports: Dictionary[Vector2i, bool] = {}
+	var zones: Array[Rect2] = []
+
+var mechanism: MechanismData = MechanismData.new()
 
 var kind: Kind = Kind.NONE
 var x: float = 0.0
@@ -138,7 +157,7 @@ static func create(p_kind: Kind) -> BossState:
 			boss.grid.fill(Tile.BOUNCY)
 	boss.set_cell(boss.center_r, boss.center_c, Tile.GOAL)
 
-	if p_kind == Kind.BOUNCY_SLIME or p_kind == Kind.GLASS_SLIME:
+	if p_kind == Kind.BOUNCY_SLIME or p_kind == Kind.GLASS_SLIME or p_kind >= Kind.SENSOR_SENTINEL:
 		boss.has_durability = true
 	if p_kind == Kind.GLASS_SLIME:
 		boss.shields = make_shield_ring(4)

@@ -223,7 +223,7 @@ func _test_boss_level() -> void:
 
 
 func _test_worlds_and_speeds() -> void:
-	for slot: int in [10, 20, 30, 40, 50]:
+	for slot: int in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 		_app.play_official(slot)
 		await _frames(2)
 		var game: GameScreen = _screen() as GameScreen

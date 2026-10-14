@@ -11,6 +11,9 @@ var radius: float = BossState.SHIELD_ORBIT_RADIUS
 ## World position of the shield centre.
 var cx: float = 0.0
 var cy: float = 0.0
+var prev_cx: float = 0.0
+var prev_cy: float = 0.0
+var position_initialized: bool = false
 ## Set once the shield has been picked to be thrown: it leaves the orbit,
 ## holds [member hold_offset] from the boss centre and counts down.
 var winding_up: bool = false

@@ -171,8 +171,13 @@ static func update_bounds(sim: GameSim) -> void:
 		kill_and_reveal_goal(sim)
 		return
 
-	boss.x += float(min_c - boss.min_c) * Tile.SIZE
-	boss.y += float(min_r - boss.min_r) * Tile.SIZE
+	var offset: Vector2 = Vector2(min_c - boss.min_c, min_r - boss.min_r) * Tile.SIZE
+	boss.x += offset.x
+	boss.y += offset.y
+	# Rebase both snapshots: resizing is not movement, and must not make
+	# unchanged blocks slide from the old bounding-box origin for one frame.
+	boss.prev_x += offset.x
+	boss.prev_y += offset.y
 	boss.w = float(max_c - min_c + 1) * Tile.SIZE
 	boss.h = float(max_r - min_r + 1) * Tile.SIZE
 	boss.min_r = min_r

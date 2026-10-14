@@ -23,6 +23,23 @@ func get_level(slot: int) -> LevelData:
 	return _repository.resolve(slot)
 
 
+func has_level(slot: int) -> bool:
+	return _repository.has_level(slot)
+
+
+func world_has_levels(world: int) -> bool:
+	return _repository.world_has_levels(world)
+
+
+func level_count() -> int:
+	return _repository.level_count()
+
+
+## The slot the campaign goes to after [param slot], or 0 when it ends there.
+func next_campaign_slot(slot: int) -> int:
+	return _repository.next_campaign_slot(slot)
+
+
 func save_custom(slot: int, data: LevelData) -> Error:
 	var error: Error = _repository.save_custom(slot, data)
 	if error == OK:
@@ -47,6 +64,6 @@ func export_all() -> String:
 
 func import_text(text: String, current_slot: int) -> LevelRepository.ImportResult:
 	var result: LevelRepository.ImportResult = _repository.import_text(text, current_slot)
-	if result.ok:
+	if result.ok or not result.slots.is_empty():
 		custom_levels_changed.emit()
 	return result

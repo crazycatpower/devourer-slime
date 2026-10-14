@@ -19,12 +19,16 @@ var shake_offset: Vector2 = Vector2.ZERO
 ## State of the shoot and eat buttons, for the aiming aids.
 var shoot_held: bool = false
 var eat_held: bool = false
+## Historical presentation during death; gameplay keeps its normal retry timer.
+var rewinding: bool = false
 ## How much bullet time is left, 0..1; a gauge is shown while it is not full.
 var bullet_time_energy: float = 1.0
 ## When set, the editor's grid and brush preview are drawn on top.
 var editor: LevelEditor
 var editor_zoom: float = 1.0
 var editor_erasing: bool = false
+var editor_show_grid: bool = true
+var editor_show_devices: bool = true
 
 ## Screen pixels per world unit.
 var world_scale: float = 1.0
@@ -47,6 +51,8 @@ func _ready() -> void:
 	move_child(_world, 0)
 	_add_layer(BackdropLayer.new(), "Backdrop")
 	_add_layer(TileLayer.new(), "Tiles")
+	_add_layer(MechanismLayer.new(), "Mechanisms")
+	_add_layer(MovingTileLayer.new(), "MovingTiles")
 	_add_layer(AimLayer.new(), "Aim")
 	_add_layer(ProjectileLayer.new(), "Projectiles")
 	_add_layer(PlayerLayer.new(), "Player")
@@ -62,7 +68,7 @@ func _process(delta: float) -> void:
 	if sim == null:
 		return
 	exit_vortex.advance(delta, sim)
-	time_ms = float(Time.get_ticks_msec())
+	time_ms = sim.clock_ms() if rewinding else float(Time.get_ticks_msec())
 	world_scale = size.x / GameConstants.VIEW_WIDTH * (editor_zoom if editor != null else 1.0)
 	var camera: SimCamera = sim.camera
 	camera_position = Vector2(
@@ -110,3 +116,14 @@ func _add_layer(layer: WorldLayer, layer_name: String) -> void:
 	layer.view = self
 	_world.add_child(layer)
 	_layers.append(layer)
+
+
+func player_position() -> Vector2:
+	var player: PlayerState = sim.player
+	return tween_position(player.prev_x, player.prev_y, player.x, player.y)
+
+
+func tile_position(cell: Vector2i) -> Vector2:
+	if sim.tile_motions.has(cell):
+		return sim.tile_motions[cell].position_at(float(sim.tick_count - 1) + tick_alpha)
+	return Vector2(cell) * Tile.SIZE

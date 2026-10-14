@@ -23,9 +23,47 @@ var camera: SimCamera = SimCamera.new()
 var player: PlayerState = PlayerState.new()
 var boss: BossState = BossState.create(BossState.Kind.NONE)
 var projectiles: Array[SimProjectile] = []
+## Primed charges remain visible at their trigger position until the fuse ends.
+class TntCharge:
+	var center: Vector2
+	var returned_charge: bool = false
+	var boss_owned: bool = false
+	var explode_tick: int
+
+var tnt_charges: Array[TntCharge] = []
 var particles: Array[SimParticle] = []
 var falling_blocks: Array[SimFallingBlock] = []
+var mechanisms_enabled: bool = false
+var powered_cells: Dictionary[Vector2i, bool] = {}
+## Cache validity is based on source coverage and grid signal connectivity.
+var signal_grid: LevelGrid
+var signal_revision: int = -1
+var signal_sources: Array[Vector2i] = []
+var signal_detectors: Array[Vector2i] = []
+var sliding_cells: Dictionary[Vector2i, int] = {}
+## Ice attached to the underside of a ceiling while it slides.
+var ceiling_slides: Dictionary[Vector2i, bool] = {}
+## A block on its way from one cell to the next: carried by a rail, falling or
+## sliding. The grid already holds it in its destination cell, but it is drawn
+## and collided with where it is at the moment. It follows the same simulation
+## clock as mechanisms and bullet time.
+class TileMotion:
+	var origin: Vector2
+	var destination: Vector2i
+	var type: int
+	var start_tick: int
+	var duration: int
+	## True for a block being moved from cell to cell by a mechanism: it is solid
+	## where it has got to. False for a spat block easing into the cell it landed
+	## in, which is only drawn that way and is solid in its cell at once.
+	var transport: bool = false
+	func position_at(time: float) -> Vector2:
+		return origin.lerp(Vector2(destination) * Tile.SIZE, clampf((time - start_tick) / maxf(1.0, duration), 0.0, 1.0))
+
+var tile_motions: Dictionary[Vector2i, TileMotion] = {}
 var death_timer: int = 0
+## GameScreen can restore a safe history snapshot instead of resetting the level.
+var external_death_recovery: bool = false
 ## Ticks simulated since this object was created; never reset, so it can
 ## serve as the gameplay clock.
 var tick_count: int = 0
@@ -58,8 +96,18 @@ func reset() -> void:
 	player = PlayerState.new()
 	player.place_at(_source.start_x(), _source.start_y())
 	projectiles.clear()
+	tnt_charges.clear()
 	particles.clear()
 	falling_blocks.clear()
+	powered_cells.clear()
+	signal_grid = null
+	signal_revision = -1
+	signal_sources.clear()
+	signal_detectors.clear()
+	sliding_cells.clear()
+	ceiling_slides.clear()
+	tile_motions.clear()
+	MechanismSystem.initialize(self)
 	death_timer = 0
 	boss = BossState.create(boss_kind)
 	if boss.active:
@@ -72,6 +120,8 @@ func reset() -> void:
 		BossMudGolem.build_arena(self)
 	if boss_kind == BossState.Kind.STEEL_CHASE:
 		BossSteelChase.setup(self)
+	if BossMechanism.is_kind(boss_kind):
+		BossMechanism.setup(self)
 	camera.shake = 0.0
 	camera.snap_to(player.center_x(), _camera_focus_y(), level)
 	level_reset.emit()
@@ -92,15 +142,20 @@ func step(p_input: SimInput) -> void:
 	_store_previous_positions()
 
 	if not player.dead and not player.won:
+		# Blocks in transit move first, taking whoever stands on them along.
+		MechanismSystem.carry_player(self)
 		PlayerSystem.update(self)
 		BossSystem.update(self)
 	ProjectileSystem.update(self)
+	if not player.dead and not player.won:
+		MechanismSystem.update(self)
+	_prune_tile_motions()
 	_update_particles()
 
 	if player.dead:
 		player.in_bullet_time = false
 		death_timer += 1
-		if death_timer > DEATH_RESTART_TICKS:
+		if death_timer > DEATH_RESTART_TICKS and not external_death_recovery:
 			reset()
 	if player.won:
 		player.in_bullet_time = false
@@ -179,6 +234,11 @@ func damage_cell_at(row: int, col: int) -> void:
 	var next_type: int = block_type
 	var should_break: bool = false
 	match block_type:
+		Tile.TNT:
+			MechanismSystem.detonate_cell(self, Vector2i(col, row))
+			return
+		Tile.SAND, Tile.ICE:
+			should_break = true
 		Tile.GLASS:
 			should_break = true
 		Tile.DIRT:
@@ -225,8 +285,10 @@ func damage_tiles_under_boss(r_floor: int) -> void:
 static func debris_color(block_type: int) -> Color:
 	if Tile.is_bouncy(block_type):
 		return Palette.PINK_500
-	if block_type == Tile.GLASS:
+	if block_type == Tile.GLASS or block_type == Tile.ICE:
 		return Palette.CYAN_500
+	if block_type == Tile.TNT:
+		return Palette.RED_500
 	return Palette.AMBER_600
 
 
@@ -238,20 +300,34 @@ func get_eat_target(cx: float, cy: float, nx: float, ny: float) -> EatTarget:
 	if is_mud_golem and boss.reorg_timer > 0:
 		return null
 	var scan_boss: bool = (
-		is_mud_golem and boss.active and not boss.dead and boss.state != BossState.State.SUSPENDED
+		(is_mud_golem or boss_kind in [BossState.Kind.SENSOR_SENTINEL, BossState.Kind.SAND_COLOSSUS, BossState.Kind.RAIL_CARRIER]) and boss.active and not boss.dead and boss.state not in [BossState.State.SUSPENDED, BossState.State.INTRO]
 	)
 	for i: int in range(1, 21):
 		var f: float = float(i) / 20.0
 		var ptx: float = cx + nx * (65.0 * f)
 		var pty: float = cy + ny * (65.0 * f)
 
+		if boss_kind == BossState.Kind.TNT_FURNACE:
+			for charge: TntCharge in tnt_charges:
+				if charge.boss_owned and Rect2(charge.center - Vector2.ONE * Tile.SIZE * 0.5, Vector2.ONE * Tile.SIZE).has_point(Vector2(ptx, pty)):
+					var target: EatTarget = EatTarget.make(Tile.cell_of(charge.center.y), Tile.cell_of(charge.center.x), Tile.TNT, false)
+					target.charge = charge
+					return target
 		if scan_boss:
 			for r: int in range(boss.min_r, boss.max_r + 1):
 				for c: int in range(boss.min_c, boss.max_c + 1):
 					var val: int = boss.grid[r * boss.grid_size + c]
+					if boss_kind == BossState.Kind.SAND_COLOSSUS and (r != boss.center_r or c != boss.center_c):
+						continue
+					if boss_kind == BossState.Kind.SENSOR_SENTINEL and not boss.mechanism.covered_ports.has(Vector2i(c, r)):
+						continue
+					if boss_kind == BossState.Kind.RAIL_CARRIER and (r != 0 or c not in [0, 2] or val != Tile.DIRT):
+						continue
 					if val > 0:
 						var cell_x: float = boss.cell_x(c)
 						var cell_y: float = boss.cell_y(r)
+						if boss_kind == BossState.Kind.SENSOR_SENTINEL and r == 0 and c == 1:
+							cell_y -= Tile.SIZE * 0.5
 						if (
 							ptx >= cell_x and ptx <= cell_x + Tile.SIZE
 							and pty >= cell_y and pty <= cell_y + Tile.SIZE
@@ -265,8 +341,8 @@ func get_eat_target(cx: float, cy: float, nx: float, ny: float) -> EatTarget:
 	return null
 
 
-## Solid boxes overlapping the given rectangle: level tiles, then the blocks
-## that make up the mud golem.
+## Solid boxes overlapping the given rectangle: level tiles, blocks in transit
+## at the place they have reached, then the blocks that make up the mud golem.
 func solid_boxes(rect_x: float, rect_y: float, rect_w: float, rect_h: float) -> Array[SolidBox]:
 	var list: Array[SolidBox] = []
 	var left: int = floori((rect_x + 0.001) / Tile.SIZE)
@@ -277,8 +353,21 @@ func solid_boxes(rect_x: float, rect_y: float, rect_w: float, rect_h: float) -> 
 		for c: int in range(left, right + 1):
 			if level.in_bounds(r, c):
 				var t: int = level.get_cell(r, c)
-				if Tile.is_solid(t):
+				# A block still on its way is not in this cell yet; see below.
+				if Tile.is_solid(t) and not is_tile_in_transit(Vector2i(c, r)):
 					list.append(SolidBox.make(float(c) * Tile.SIZE, float(r) * Tile.SIZE, t))
+	for cell: Vector2i in tile_motions:
+		if not is_tile_in_transit(cell):
+			continue
+		var motion: TileMotion = tile_motions[cell]
+		if not Tile.is_solid(motion.type):
+			continue
+		var at: Vector2 = tile_position_now(motion)
+		if (
+			at.x < rect_x + rect_w - 0.001 and at.x + Tile.SIZE > rect_x + 0.001
+			and at.y < rect_y + rect_h - 0.001 and at.y + Tile.SIZE > rect_y + 0.001
+		):
+			list.append(SolidBox.make(at.x, at.y, motion.type))
 
 	if (
 		boss_kind == BossState.Kind.MUD_GOLEM and boss.active and not boss.dead
@@ -315,6 +404,9 @@ func _store_previous_positions() -> void:
 	if boss.active:
 		boss.prev_x = boss.x
 		boss.prev_y = boss.y
+		for shield: ShieldState in boss.shields:
+			shield.prev_cx = shield.cx
+			shield.prev_cy = shield.cy
 	for p: SimProjectile in projectiles:
 		p.prev_x = p.x
 		p.prev_y = p.y
@@ -335,3 +427,43 @@ func _update_particles() -> void:
 		pt.life += 1.0
 		if pt.life > pt.max_life:
 			particles.remove_at(i)
+
+
+func animate_tile_move(from: Vector2i, to: Vector2i, duration: int) -> void:
+	var origin: Vector2 = tile_motions[from].position_at(tick_count - 1) if tile_motions.has(from) else Vector2(from) * Tile.SIZE
+	tile_motions.erase(from)
+	animate_tile_from(origin, to, duration)
+	tile_motions[to].transport = true
+
+
+func animate_tile_from(origin: Vector2, to: Vector2i, duration: int) -> void:
+	var motion: TileMotion = TileMotion.new()
+	motion.origin = origin
+	motion.destination = to
+	motion.type = level.get_cell(to.y, to.x)
+	motion.start_tick = tick_count - 1
+	motion.duration = duration
+	tile_motions[to] = motion
+
+
+## Top-left of a block in transit, as collisions see it this tick. It is the
+## same place the block is drawn at once the tick is over.
+func tile_position_now(motion: TileMotion) -> Vector2:
+	return motion.position_at(float(tick_count))
+
+
+## True while the block that the grid holds in [param cell] has not arrived
+## there yet.
+func is_tile_in_transit(cell: Vector2i) -> bool:
+	if not tile_motions.has(cell):
+		return false
+	var motion: TileMotion = tile_motions[cell]
+	if not motion.transport or level.get_cell(cell.y, cell.x) != motion.type:
+		return false
+	return not tile_position_now(motion).is_equal_approx(Vector2(cell) * Tile.SIZE)
+
+func _prune_tile_motions() -> void:
+	for cell: Vector2i in tile_motions.keys():
+		var motion: TileMotion = tile_motions[cell]
+		if level.get_cell(cell.y, cell.x) != motion.type or tick_count - 1 - motion.start_tick >= motion.duration:
+			tile_motions.erase(cell)

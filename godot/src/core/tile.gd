@@ -14,6 +14,14 @@ const SPIKE_UP: int = 4
 const BOUNCY: int = 5
 const GLASS: int = 6
 const VOID: int = 7
+const SENSOR: int = 8
+const RAIL_RIGHT: int = 9
+const SAND: int = 10
+const ICE: int = 13
+const RAIL_LEFT: int = 14
+const RAIL_UP: int = 17
+const RAIL_DOWN: int = 18
+const TNT: int = 16
 ## Dirt that has been swallowed and spat back once / twice.
 const DIRT_EATEN_1: int = 11
 const DIRT_EATEN_2: int = 12
@@ -30,7 +38,7 @@ static func is_solid(t: int) -> bool:
 		t == DIRT or t == STEEL or t == BOUNCY
 		or t == DIRT_EATEN_1 or t == DIRT_EATEN_2
 		or t == BOUNCY_EATEN_1 or t == BOUNCY_EATEN_2
-		or t == GLASS
+		or t == GLASS or t == SAND or t == ICE or t == TNT
 	)
 
 
@@ -38,7 +46,24 @@ static func is_eatable(t: int) -> bool:
 	return (
 		t == DIRT or t == DIRT_EATEN_1 or t == DIRT_EATEN_2
 		or t == BOUNCY or t == BOUNCY_EATEN_1 or t == BOUNCY_EATEN_2
+		or t == SAND or t == ICE or t == TNT
 	)
+
+
+static func is_rail(t: int) -> bool:
+	return t in [RAIL_RIGHT, RAIL_LEFT, RAIL_UP, RAIL_DOWN]
+
+
+static func rail_direction(t: int) -> Vector2i:
+	match t:
+		RAIL_UP: return Vector2i.UP
+		RAIL_DOWN: return Vector2i.DOWN
+		RAIL_LEFT: return Vector2i.LEFT
+	return Vector2i.RIGHT
+
+
+static func is_movable(t: int) -> bool:
+	return is_solid(t) and t != STEEL and t != SENSOR and not is_rail(t)
 
 
 ## Tiles that kill on contact with their hazard box (spikes and the void core).

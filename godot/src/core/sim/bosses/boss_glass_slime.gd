@@ -16,11 +16,11 @@ extends RefCounted
 ## - swoop: it draws back to one side and flies a low arc through the spot
 ##   where the player stands, shaving the top off the glass, then climbs
 ##   away again unless it strikes dirt and is stunned;
-## - bombs: shields flash, draw back and are thrown as glass bombs that
-##   burst on contact, blowing a hole in the glass.
+## - throws: shields flash, draw back and are thrown as glass, stopping at
+##   first contact and breaking only the glass they touch.
 ## - repair: announces two, three or four replacement shields;
 ##   a core hit interrupts it.
-## Bombs and crushing against terrain kill; body contact alone does not.
+## Direct hits from thrown glass and crushing kill; body contact alone does not.
 ## The shields are what keep a spat block from the core, and
 ## bombing spends them: every bomb thrown is a shield gone. A block that
 ## reaches the core costs it one point of durability, regrows a larger ring
@@ -61,7 +61,8 @@ const SWOOP_REACH: float = 320.0
 ## How far below the player's feet the body dips at the low point.
 const SWOOP_DIP: float = 80.0
 
-const BOMB_RADIUS: float = 14.0
+## A thrown shield keeps its original one-tile size, including collision.
+const BOMB_RADIUS: float = Tile.SIZE * 0.5
 ## Reduced alongside flight speed so slower bombs keep a similar arc.
 const BOMB_GRAVITY: float = 0.14
 ## Ticks a bomb is in the air on its way to where the player stood.
@@ -72,11 +73,6 @@ const BOMB_AIM_SPREAD_Y: float = 40.0
 ## two throws of one volley.
 const WINDUP_PULL: float = 46.0
 const WINDUP_STAGGER_TICKS: int = 14
-## The burst kills within this distance of the bomb, and shatters glass
-## whose centre is within the larger one.
-const BLAST_KILL_RADIUS: float = 64.0
-const BLAST_GLASS_RADIUS: float = 92.0
-
 ## A spat block within this distance of a shield centre shatters it.
 const SHIELD_HIT_RADIUS: float = 32.0
 const CORE_HIT_RADIUS: float = 60.0
@@ -198,6 +194,10 @@ static func sync_orbiting_shields(sim: GameSim) -> void:
 		shield.radius = BossState.SHIELD_ORBIT_RADIUS
 		shield.cx = boss.center_x() + cos(angle) * shield.radius
 		shield.cy = boss.center_y() + sin(angle) * shield.radius
+		if not shield.position_initialized:
+			shield.prev_cx = shield.cx
+			shield.prev_cy = shield.cy
+			shield.position_initialized = true
 
 
 static func update(sim: GameSim) -> void:
@@ -416,6 +416,7 @@ static func _update_repair_warning(sim: GameSim) -> void:
 		if shield.active:
 			continue
 		shield.active = true
+		shield.position_initialized = false
 		shield.winding_up = false
 		shield.windup_timer = 0
 		remaining -= 1
@@ -692,13 +693,13 @@ static func _update_bombs(sim: GameSim) -> void:
 		bomb.prev_x = bomb.x
 		bomb.prev_y = bomb.y
 		if bomb.landed or _fly_bomb(level, bomb, sim.player):
-			_burst(sim, bomb)
+			_shatter_throw(sim, bomb)
 			boss.bombs.remove_at(i)
 		elif bomb.y - BOMB_RADIUS > level.pixel_height():
 			boss.bombs.remove_at(i)
 
 
-## Swept flight; true at the first terrain or player contact, for immediate detonation.
+## Swept flight stops at the first player or terrain contact.
 static func _fly_bomb(level: LevelGrid, bomb: GlassBomb, player: PlayerState = null) -> bool:
 	# Also recover bombs whose winding-up shield was already outside a wall.
 	var inside_x: float = clampf(bomb.x, Tile.SIZE + BOMB_RADIUS, level.pixel_width() - Tile.SIZE - BOMB_RADIUS)
@@ -713,7 +714,7 @@ static func _fly_bomb(level: LevelGrid, bomb: GlassBomb, player: PlayerState = n
 		if bomb.vx != 0.0:
 			var next_x: float = bomb.x + bomb.vx / float(steps)
 			var edge_x: float = next_x + signf(bomb.vx) * BOMB_RADIUS
-			if next_x < Tile.SIZE + BOMB_RADIUS or next_x > level.pixel_width() - Tile.SIZE - BOMB_RADIUS or _bomb_edge_is_solid(level, edge_x, bomb.y, true):
+			if next_x < Tile.SIZE + BOMB_RADIUS or next_x > level.pixel_width() - Tile.SIZE - BOMB_RADIUS or _bomb_edge_is_solid(level, edge_x, bomb.y, true, bomb):
 				var wall_col: int = floori(edge_x / Tile.SIZE)
 				bomb.x = float(wall_col) * Tile.SIZE - BOMB_RADIUS if bomb.vx > 0.0 else float(wall_col + 1) * Tile.SIZE + BOMB_RADIUS
 				bomb.vx = 0.0
@@ -721,13 +722,13 @@ static func _fly_bomb(level: LevelGrid, bomb: GlassBomb, player: PlayerState = n
 			else:
 				bomb.x = next_x
 		var next_y: float = bomb.y + bomb.vy / float(steps)
-		if bomb.vy > 0.0 and _bomb_edge_is_solid(level, bomb.x, next_y + BOMB_RADIUS, false):
+		if bomb.vy > 0.0 and _bomb_edge_is_solid(level, bomb.x, next_y + BOMB_RADIUS, false, bomb):
 			bomb.y = floorf((next_y + BOMB_RADIUS) / Tile.SIZE) * Tile.SIZE - BOMB_RADIUS
 			bomb.vx = 0.0
 			bomb.vy = 0.0
 			bomb.landed = true
 			return true
-		if bomb.vy < 0.0 and _bomb_edge_is_solid(level, bomb.x, next_y - BOMB_RADIUS, false):
+		if bomb.vy < 0.0 and _bomb_edge_is_solid(level, bomb.x, next_y - BOMB_RADIUS, false, bomb):
 			bomb.y = (floorf((next_y - BOMB_RADIUS) / Tile.SIZE) + 1.0) * Tile.SIZE + BOMB_RADIUS
 			bomb.vy = 0.0
 			return true
@@ -741,14 +742,19 @@ static func _bomb_touches_player(bomb: GlassBomb, player: PlayerState) -> bool:
 
 
 ## Check the full leading edge, excluding mere corner contact with the floor.
-static func _bomb_edge_is_solid(level: LevelGrid, x: float, y: float, horizontal: bool) -> bool:
+static func _bomb_edge_is_solid(level: LevelGrid, x: float, y: float, horizontal: bool, bomb: GlassBomb = null) -> bool:
+	var hit: bool = false
 	for offset: float in [-(BOMB_RADIUS - 0.001), 0.0, BOMB_RADIUS - 0.001]:
-		if _is_solid_at(level, x if horizontal else x + offset, y + offset if horizontal else y):
-			return true
-	return false
+		var point: Vector2 = Vector2(x if horizontal else x + offset, y + offset if horizontal else y)
+		if _is_solid_at(level, point.x, point.y):
+			hit = true
+			var cell: Vector2i = Vector2i(Tile.cell_of(point.x), Tile.cell_of(point.y))
+			if bomb != null and not bomb.hit_cells.has(cell):
+				bomb.hit_cells.append(cell)
+	return hit
 
 
-## The arena walls count as solid; below the level is open.
+## Interior obstacles stop thrown glass; an open bottom still lets it leave.
 static func _is_solid_at(level: LevelGrid, x: float, y: float) -> bool:
 	var col: int = floori(x / Tile.SIZE)
 	var row: int = floori(y / Tile.SIZE)
@@ -756,34 +762,25 @@ static func _is_solid_at(level: LevelGrid, x: float, y: float) -> bool:
 		return true
 	if row >= level.rows:
 		return false
-	return Tile.is_solid(level.get_cell(row, col))
+	var type: int = level.get_cell(row, col)
+	return Tile.is_solid(type) or Tile.is_spike(type)
 
 
-## The bomb goes off: it kills the player if close, and shatters the glass
-## around it. Dirt and everything else is left standing.
-static func _burst(sim: GameSim, bomb: GlassBomb) -> void:
-	var level: LevelGrid = sim.level
-	var player: PlayerState = sim.player
-	var nearest: Vector2 = Vector2(
-		clampf(bomb.x, player.x, player.x + player.w), clampf(bomb.y, player.y, player.y + player.h)
-	)
-	if nearest.distance_to(Vector2(bomb.x, bomb.y)) < BLAST_KILL_RADIUS and sim.kill_player():
-		sim.spawn_particles(player.center_x(), player.center_y(), BODY_COLOR, 40, 8.0)
+## Shatter the thrown piece and directly contacted glass, without a blast.
+static func _shatter_throw(sim: GameSim, bomb: GlassBomb) -> void:
+	if _bomb_touches_player(bomb, sim.player) and sim.kill_player():
 		sim.play(Sfx.Id.HURT)
-	var reach: int = ceili(BLAST_GLASS_RADIUS / Tile.SIZE)
-	var centre_col: int = floori(bomb.x / Tile.SIZE)
-	var centre_row: int = floori(bomb.y / Tile.SIZE)
-	for row: int in range(centre_row - reach, centre_row + reach + 1):
-		for col: int in range(centre_col - reach, centre_col + reach + 1):
-			if not level.in_bounds(row, col) or level.get_cell(row, col) != Tile.GLASS:
-				continue
-			var cell: Vector2 = (Vector2(col, row) + Vector2(0.5, 0.5)) * Tile.SIZE
-			if cell.distance_to(Vector2(bomb.x, bomb.y)) <= BLAST_GLASS_RADIUS:
-				level.set_cell(row, col, Tile.AIR)
-				sim.spawn_particles(cell.x, cell.y, SPARK_COLOR, 6, 5.0)
-	sim.add_shake(20.0)
+	for cell: Vector2i in bomb.hit_cells:
+		if sim.level.get_cell(cell.y, cell.x) == Tile.GLASS:
+			sim.level.set_cell(cell.y, cell.x, Tile.AIR)
+			sim.tile_motions.erase(cell)
+			sim.sliding_cells.erase(cell)
+			sim.ceiling_slides.erase(cell)
+			var center: Vector2 = (Vector2(cell) + Vector2.ONE * 0.5) * Tile.SIZE
+			sim.spawn_particles(center.x, center.y, SPARK_COLOR, 6, 2.5)
+	sim.add_shake(3.0)
 	sim.play(Sfx.Id.BOUNCE)
-	sim.spawn_particles(bomb.x, bomb.y, Palette.WHITE, 30, 8.0)
+	sim.spawn_particles(bomb.x, bomb.y, SPARK_COLOR, 10, 3.0)
 
 
 # --- Shared ---------------------------------------------------------------------------

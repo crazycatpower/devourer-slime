@@ -13,6 +13,9 @@ static func resolve(sim: GameSim) -> void:
 		return
 	if boss.state == BossState.State.SUSPENDED or boss.state == BossState.State.INTRO:
 		return
+	if BossMechanism.is_kind(sim.boss_kind):
+		_resolve_glass_body(sim)
+		return
 	match sim.boss_kind:
 		BossState.Kind.MUD_GOLEM:
 			_resolve_block_body(sim)

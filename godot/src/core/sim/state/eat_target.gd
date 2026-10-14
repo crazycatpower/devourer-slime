@@ -2,6 +2,7 @@ class_name EatTarget
 extends RefCounted
 ## The block the player's mouth is pointing at.
 
+var charge: RefCounted = null
 var r: int = 0
 var c: int = 0
 var type: int = Tile.AIR

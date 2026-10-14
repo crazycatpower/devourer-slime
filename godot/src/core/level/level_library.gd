@@ -8,6 +8,7 @@ extends RefCounted
 
 const DATA_PATH: String = "res://data/levels/official_levels.json"
 const WORLD_5_PATH: String = "res://data/levels/world5_levels.json"
+const MECHANISM_PATH: String = "res://data/levels/mechanism_levels.json"
 const CAMPAIGN_PATH: String = "res://data/levels/campaign_levels.json"
 const WORLD_4_MID_PATH: String = "res://data/levels/world4_mid_levels.json"
 ## Levels the designer edited in the in-game editor, written by
@@ -21,6 +22,11 @@ const _BOSS_BY_SLOT: Dictionary[int, int] = {
 	30: BossState.Kind.BOUNCY_SLIME,
 	40: BossState.Kind.GLASS_SLIME,
 	50: BossState.Kind.VOID_SLIME,
+	60: BossState.Kind.SENSOR_SENTINEL,
+	70: BossState.Kind.ICE_SKATER,
+	80: BossState.Kind.SAND_COLOSSUS,
+	90: BossState.Kind.RAIL_CARRIER,
+	100: BossState.Kind.TNT_FURNACE,
 }
 
 static var _loaded: bool = false
@@ -28,7 +34,9 @@ static var _default_rows: PackedStringArray = PackedStringArray()
 static var _boss_rows: PackedStringArray = PackedStringArray()
 static var _big_world_rows: PackedStringArray = PackedStringArray()
 static var _slot_rows: Dictionary[int, PackedStringArray] = {}
-static var _designer_rows: Dictionary[int, PackedStringArray] = {}
+static var _mechanism_documents: Dictionary[int, Variant] = {}
+static var _mechanism_lessons: Dictionary = {}
+static var _designer_documents: Dictionary[int, Variant] = {}
 
 
 static func boss_kind_for_slot(slot: int) -> BossState.Kind:
@@ -48,7 +56,11 @@ static func has_authored_layout(slot: int) -> bool:
 
 ## True when [param slot] only has the generic empty room to offer.
 static func is_placeholder(slot: int) -> bool:
-	return not has_authored_layout(slot) and not is_boss_slot(slot) and not has_designer_level(slot)
+	return not is_standard_stage(slot) and not has_authored_layout(slot) and not is_boss_slot(slot) and not has_designer_level(slot)
+
+
+static func is_standard_stage(slot: int) -> bool:
+	return slot >= 51 and slot <= GameConstants.SLOT_COUNT and not is_boss_slot(slot) and not has_authored_layout(slot)
 
 
 ## Text rows of the built-in layout for [param slot].
@@ -64,26 +76,44 @@ static func built_in_rows(slot: int) -> PackedStringArray:
 
 
 static func built_in_level(slot: int) -> LevelData:
+	_ensure_loaded()
+	if _mechanism_documents.has(slot):
+		return LevelCodec.decode_document(_mechanism_documents[slot])
 	return LevelCodec.decode(built_in_rows(slot))
+
+
+static func stage_name(slot: int) -> String:
+	_ensure_loaded()
+	var info: Dictionary = _mechanism_lessons.get(str(slot), {})
+	return info.get("name", "")
+
+
+static func stage_hint(slot: int) -> String:
+	_ensure_loaded()
+	var info: Dictionary = _mechanism_lessons.get(str(slot), {})
+	return info.get("hint", "")
 
 
 ## True when the designer's own level ships for [param slot].
 static func has_designer_level(slot: int) -> bool:
 	_ensure_loaded()
-	return _designer_rows.has(slot)
+	return _designer_documents.has(slot)
 
 
 ## Text rows of the level [param slot] ships with: the designer's level when
 ## there is one, otherwise the built-in layout.
 static func shipped_rows(slot: int) -> PackedStringArray:
 	_ensure_loaded()
-	if _designer_rows.has(slot):
-		return _designer_rows[slot]
+	if _designer_documents.has(slot):
+		return LevelValidator.rows_from_json(_designer_documents[slot])
 	return built_in_rows(slot)
 
 
 static func shipped_level(slot: int) -> LevelData:
-	return LevelCodec.decode(shipped_rows(slot))
+	_ensure_loaded()
+	if _designer_documents.has(slot):
+		return LevelCodec.decode_document(_designer_documents[slot])
+	return built_in_level(slot)
 
 
 static func default_rows() -> PackedStringArray:
@@ -150,6 +180,19 @@ static func _ensure_loaded() -> void:
 	var mid_slots: Dictionary = mid.get("slots", {})
 	for slot: int in [34, 35, 36, 37]:
 		_slot_rows[slot] = to_rows(mid_slots.get(str(slot)))
+	# The user commissioned new mechanism maps; keep every overlay, not just rows.
+	if FileAccess.file_exists(MECHANISM_PATH):
+		var mechanism: Variant = JSON.parse_string(FileAccess.get_file_as_string(MECHANISM_PATH))
+		if mechanism is Dictionary:
+			var mechanism_root: Dictionary = mechanism
+			var mechanism_slots: Dictionary = mechanism_root.get("slots", {})
+			_mechanism_lessons = mechanism_root.get("lessons", {})
+			for key: Variant in mechanism_slots:
+				var slot: int = str(key).to_int()
+				var document: Variant = mechanism_slots[key]
+				if slot >= 51 and slot <= 99 and not is_boss_slot(slot) and LevelValidator.problem_with_document(document).is_empty():
+					_mechanism_documents[slot] = document
+					_slot_rows[slot] = LevelValidator.rows_from_json(document)
 	# A level that fails validation is skipped so its slot keeps a playable layout.
 	var designer: Variant = null
 	if FileAccess.file_exists(DESIGNER_PATH):
@@ -159,17 +202,11 @@ static func _ensure_loaded() -> void:
 		var designer_slots: Dictionary = designer_dict.get("slots", {})
 		for key: Variant in designer_slots:
 			var slot: int = str(key).to_int()
-			var rows: PackedStringArray = to_rows(designer_slots[key])
-			if slot >= 1 and slot <= GameConstants.SLOT_COUNT and LevelValidator.problem_with(rows).is_empty():
-				_designer_rows[slot] = rows
+			var document: Variant = designer_slots[key]
+			if slot >= 1 and slot <= GameConstants.SLOT_COUNT and LevelValidator.problem_with_document(document).is_empty():
+				_designer_documents[slot] = document
 
 
 ## Converts a parsed JSON array of strings; anything else yields an empty array.
 static func to_rows(value: Variant) -> PackedStringArray:
-	var out: PackedStringArray = PackedStringArray()
-	if value is Array:
-		var list: Array = value
-		for item: Variant in list:
-			if item is String:
-				out.append(item as String)
-	return out
+	return LevelValidator.rows_from_json(value)

@@ -11,6 +11,13 @@ const PREVIEW_TICKS: int = 350
 const BLINK_PERIOD_MS: float = 3500.0
 const BLINK_LENGTH_MS: float = 150.0
 
+var _motion: BossMotion = BossMotion.new()
+
+
+func _process(delta: float) -> void:
+	if view != null and view.sim != null:
+		_motion.advance(delta, view.sim)
+
 
 func _paint(p: Painter, sim: GameSim) -> void:
 	var boss: BossState = sim.boss
@@ -19,11 +26,15 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	if sim.boss_kind == BossState.Kind.STEEL_CHASE:
 		_paint_steel_chase(p, sim)
 		return
+	if BossMechanism.is_kind(sim.boss_kind):
+		_paint_mechanism(p, sim)
+		return
 	var pos: Vector2 = view.tween_position(boss.prev_x, boss.prev_y, boss.x, boss.y)
 	var kind: BossState.Kind = sim.boss_kind
 	var is_mud_golem: bool = kind == BossState.Kind.MUD_GOLEM
 
 	var is_glass_slime: bool = kind == BossState.Kind.GLASS_SLIME
+	_paint_impact(p, sim, pos)
 	if is_glass_slime:
 		_paint_glass_warning(p, sim)
 	elif boss.state == BossState.State.CHARGING:
@@ -32,8 +43,9 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	p.push()
 	# Squash and stretch pivot on the feet. The block body of the mud golem stays rigid.
 	p.translate(pos.x + boss.w / 2.0, pos.y + boss.h)
-	if not is_mud_golem:
-		p.scale(boss.scale_x, boss.scale_y)
+	if kind in [BossState.Kind.BOUNCY_SLIME, BossState.Kind.VOID_SLIME]:
+		p.shear_x(_motion.lean)
+		p.scale(_motion.body_scale.x, _motion.body_scale.y)
 
 	if is_mud_golem:
 		_paint_mud_golem_phase_aura(p, sim)
@@ -44,6 +56,10 @@ func _paint(p: Painter, sim: GameSim) -> void:
 		_paint_slime_body(p, sim)
 		_paint_cells(p, sim)
 	_paint_face(p, sim, pos)
+	p.pop()
+	# Status stays level and legible while the body compresses or stretches.
+	p.push()
+	p.translate(pos.x + boss.w / 2.0, pos.y + boss.h)
 	_paint_status(p, sim)
 	p.pop()
 
@@ -59,6 +75,8 @@ func _paint_steel_chase(p: Painter, sim: GameSim) -> void:
 		return
 	var pos: Vector2 = view.tween_position(boss.prev_x, boss.prev_y, boss.x, boss.y)
 	var face: float = pos.x + boss.w
+	var pulse: float = 0.3 + 0.15 * sin(view.time_ms / 180.0)
+	p.fill_rect(face - 4.0, pos.y, 4.0, boss.h, Color(Palette.RED_400, pulse))
 	for row: int in ceili(boss.h / Tile.SIZE):
 		var y: float = float(row) * Tile.SIZE
 		for col: int in ceili(boss.w / Tile.SIZE):
@@ -68,6 +86,19 @@ func _paint_steel_chase(p: Painter, sim: GameSim) -> void:
 	p.translate(pos.x + boss.w / 2.0, pos.y + boss.h)
 	_paint_face(p, sim, pos)
 	p.pop()
+
+
+func _paint_impact(p: Painter, sim: GameSim, pos: Vector2) -> void:
+	if _motion.impact <= 0.0:
+		return
+	var boss: BossState = sim.boss
+	var spread: float = (1.0 - _motion.impact) * 30.0
+	var color: Color = Palette.AMBER_400
+	if sim.boss_kind == BossState.Kind.BOUNCY_SLIME:
+		color = Palette.PINK_400
+	elif sim.boss_kind == BossState.Kind.VOID_SLIME:
+		color = Palette.PURPLE_400
+	p.stroke_round_rect(pos.x - spread, pos.y + boss.h - 4.0, boss.w + spread * 2.0, 8.0, 4.0, Color(color, _motion.impact * 0.5), 2.0)
 
 
 func _paint_mud_golem_phase_aura(p: Painter, sim: GameSim) -> void:
@@ -98,9 +129,10 @@ func _paint_slime_body(p: Painter, sim: GameSim) -> void:
 	var outline: Color
 	var outline_width: float
 	if kind == BossState.Kind.BOUNCY_SLIME:
-		fill = Color(Palette.PINK_500, 0.22)
-		outline = Palette.PINK_600
-		outline_width = 4.0 + sin(t / 60.0) * 1.5
+		var rage: float = float(BossBouncySlime.phase_for(boss.durability)) / 2.0
+		fill = Color(Palette.PINK_500.lerp(Palette.RED_500, rage), 0.22 + 0.08 * rage)
+		outline = Palette.PINK_600.lerp(Palette.RED_500, rage)
+		outline_width = 4.0 + sin(t / lerpf(110.0, 65.0, rage)) * 0.7
 	elif is_filled:
 		fill = Color(Palette.PURPLE_500, 0.35)
 		outline = Palette.PURPLE_500
@@ -133,15 +165,17 @@ func _paint_slime_body(p: Painter, sim: GameSim) -> void:
 
 	if kind == BossState.Kind.BOUNCY_SLIME:
 		var gap: float = 14.0 + sin(t / 180.0) * 2.0
-		p.fill_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(Palette.FUCHSIA_400, 0.07))
-		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(Palette.FUCHSIA_500, 0.18), 7.0)
-		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Palette.FUCHSIA_400, 2.0)
+		var aura: Color = Palette.FUCHSIA_400.lerp(Palette.RED_400, float(BossBouncySlime.phase_for(boss.durability)) / 2.0)
+		p.fill_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(aura, 0.07))
+		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, Color(aura, 0.18), 7.0)
+		p.stroke_round_rect(-half_w - gap, -boss.h - gap, boss.w + gap * 2.0, boss.h + gap * 2.0, 8.0, aura, 2.0)
 
 	if kind == BossState.Kind.VOID_SLIME and filled >= BossVoidSlime.PHASE_3_FILLED and fmod(t, 350.0) < 160.0:
 		# Phase 3: sparks arc between random cells.
-		var from: Vector2 = _cell_center(randi() % 3, randi() % 3, half_w, boss.h)
-		var to: Vector2 = _cell_center(randi() % 3, randi() % 3, half_w, boss.h)
-		var mid: Vector2 = (from + to) / 2.0 + Vector2(randf() - 0.5, randf() - 0.5) * 25.0
+		var beat: int = floori(t / 350.0)
+		var from: Vector2 = _cell_center(beat % 3, (beat + 1) % 3, half_w, boss.h)
+		var to: Vector2 = _cell_center((beat + 2) % 3, beat % 3, half_w, boss.h)
+		var mid: Vector2 = (from + to) / 2.0 + Vector2(sin(t / 70.0), cos(t / 90.0)) * 12.0
 		p.polyline(PackedVector2Array([from, mid, to]), Color(Palette.RED_400, 0.85), 2.5)
 
 
@@ -194,7 +228,7 @@ func _paint_block_body(p: Painter, sim: GameSim) -> void:
 			var f: float = clampf(
 				(elapsed - float(anim.start_frame)) / float(anim.end_frame - anim.start_frame), 0.0, 1.0
 			)
-			f = 1.0 - pow(1.0 - f, 3.0)
+			f = smoothstep(0.0, 1.0, f)
 			var x: float = left + (lerpf(float(anim.from_c), float(anim.to_c), f) - float(boss.min_c)) * _T
 			var y: float = top + (lerpf(float(anim.from_r), float(anim.to_r), f) - float(boss.min_r)) * _T
 			TilePainter.draw(p, anim.val, x, y, view.time_ms)
@@ -234,22 +268,18 @@ func _paint_block_body(p: Painter, sim: GameSim) -> void:
 
 # --- Face -----------------------------------------------------------------------
 
-func _paint_face(p: Painter, sim: GameSim, pos: Vector2) -> void:
+func _paint_face(p: Painter, sim: GameSim, _pos: Vector2) -> void:
 	var boss: BossState = sim.boss
-	var player: PlayerState = sim.player
 	var is_mud_golem: bool = sim.boss_kind == BossState.Kind.MUD_GOLEM
 	# The face sits on the core cell of the mud golem and in the upper middle of
 	# the slime bosses.
 	var face_x: float = 0.0
 	var face_y: float = -boss.h / 1.7
-	var look_from: Vector2 = pos + Vector2(boss.w / 2.0, boss.h / 2.0)
 	if is_mud_golem:
 		face_x = -boss.w / 2.0 + (float(boss.center_c - boss.min_c) + 0.5) * _T
 		face_y = -boss.h + (float(boss.center_r - boss.min_r) + 0.5) * _T
-		look_from = pos + Vector2(boss.w / 2.0 + face_x, boss.h + face_y)
 
-	var to_player: Vector2 = Vector2(player.center_x(), player.center_y()) - look_from
-	var look: Vector2 = to_player.normalized() if to_player.length() > 0.0 else Vector2.ZERO
+	var look: Vector2 = _motion.look
 	var eye_x: float = look.x * 10.0
 	var eye_y: float = look.y * 7.0
 	var hungry: bool = boss.is_filled() or boss.eating_progress > 0.0
@@ -257,19 +287,26 @@ func _paint_face(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	p.push()
 	p.translate(face_x, face_y)
 	if boss.state == BossState.State.STUNNED or fmod(view.time_ms, BLINK_PERIOD_MS) < BLINK_LENGTH_MS:
-		p.fill_rect(eye_x - 28.0, eye_y, 15.0, 3.0, Palette.SLATE_900)
-		p.fill_rect(eye_x + 13.0, eye_y, 15.0, 3.0, Palette.SLATE_900)
+		p.fill_round_rect(eye_x - 28.0, eye_y - 0.5, 15.0, 4.0, 2.0, Palette.SLATE_900)
+		p.fill_round_rect(eye_x + 13.0, eye_y - 0.5, 15.0, 4.0, 2.0, Palette.SLATE_900)
 	else:
 		var spacing: float = lerpf(16.0, 13.0, absf(look.x))
-		p.fill_rect(eye_x - spacing - 7.0, eye_y - 14.0, 14.0, 26.0, Palette.WHITE)
-		p.fill_rect(eye_x + spacing - 7.0, eye_y - 14.0, 14.0, 26.0, Palette.WHITE)
+		# Rounded like the player's eyes, so the bosses belong to the same world.
+		p.fill_round_rect(eye_x - spacing - 7.0, eye_y - 14.0, 14.0, 26.0, 6.0, Palette.WHITE)
+		p.fill_round_rect(eye_x + spacing - 7.0, eye_y - 14.0, 14.0, 26.0, 6.0, Palette.WHITE)
 		var pupil: Color = Palette.RED_500
 		if sim.boss_kind == BossState.Kind.GLASS_SLIME:
 			pupil = Palette.CYAN_500
 		elif hungry and sim.boss_kind != BossState.Kind.STEEL_CHASE:
 			pupil = Palette.PURPLE_500
-		p.fill_rect(eye_x - spacing - 3.0 + look.x * 2.0, eye_y - 7.0 + look.y * 2.0, 6.0, 14.0, pupil)
-		p.fill_rect(eye_x + spacing - 3.0 + look.x * 2.0, eye_y - 7.0 + look.y * 2.0, 6.0, 14.0, pupil)
+		p.fill_round_rect(eye_x - spacing - 3.0 + look.x * 2.0, eye_y - 7.0 + look.y * 2.0, 6.0, 14.0, 3.0, pupil)
+		p.fill_round_rect(eye_x + spacing - 3.0 + look.x * 2.0, eye_y - 7.0 + look.y * 2.0, 6.0, 14.0, 3.0, pupil)
+		var anger: float = _motion.tension
+		if sim.boss_kind == BossState.Kind.BOUNCY_SLIME:
+			anger = maxf(anger, float(BossBouncySlime.phase_for(boss.durability)) * 0.3)
+		if anger > 0.05:
+			p.line(eye_x - 30.0, eye_y - 20.0 - anger * 3.0, eye_x - 9.0, eye_y - 18.0 + anger * 4.0, Palette.SLATE_900, 3.0)
+			p.line(eye_x + 9.0, eye_y - 18.0 + anger * 4.0, eye_x + 30.0, eye_y - 20.0 - anger * 3.0, Palette.SLATE_900, 3.0)
 	p.pop()
 
 
@@ -282,6 +319,11 @@ func _paint_status(p: Painter, sim: GameSim) -> void:
 
 	if kind == BossState.Kind.GLASS_SLIME:
 		# Its core shows the durability and its moves announce themselves.
+		var winding: bool = false
+		for shield: ShieldState in boss.shields:
+			winding = winding or shield.winding_up
+		if winding or not boss.bombs.is_empty():
+			p.text("意圖：投擲玻璃" if winding else "玻璃投擲中", 0.0, -boss.h - 92.0, 11.0, Palette.CYAN_400, true)
 		return
 	if kind == BossState.Kind.BOUNCY_SLIME:
 		_paint_durability(p, sim)
@@ -290,16 +332,16 @@ func _paint_status(p: Painter, sim: GameSim) -> void:
 	if boss.state == BossState.State.CHARGING:
 		var bar_y: float = -boss.h - 25.0
 		var progress: float = _charge_progress(boss)
-		p.fill_rect(-70.0, bar_y, 140.0, 12.0, Color(Palette.SLATE_900, 0.9))
+		p.fill_round_rect(-70.0, bar_y, 140.0, 12.0, 6.0, Palette.PURPLE_400)
+		p.fill_round_rect(-68.5, bar_y + 1.5, 137.0, 9.0, 4.5, Palette.SLATE_900)
 		var color: Color = Palette.PURPLE_500 if fmod(t, 150.0) < 75.0 else Palette.PINK_500
-		p.fill_rect(-68.0, bar_y + 2.0, 136.0 * progress, 8.0, color)
-		p.stroke_rect(-70.0, bar_y, 140.0, 12.0, Palette.PURPLE_400, 1.5)
+		p.fill_round_rect(-68.0, bar_y + 2.0, 136.0 * progress, 8.0, 4.0, color)
 		p.text("大招蓄力中…", 0.0, bar_y - 8.0, 11.0, Palette.PURPLE_100, true)
 	elif boss.eating_progress > 0.0:
 		var bar_y: float = -boss.h - 25.0
-		p.fill_rect(-40.0, bar_y, 80.0, 8.0, Color(Palette.SLATE_900, 0.8))
-		p.fill_rect(-40.0, bar_y, 80.0 * minf(boss.eating_progress, 1.0), 8.0, Palette.PURPLE_500)
-		p.stroke_rect(-40.0, bar_y, 80.0, 8.0, Palette.PURPLE_400, 1.0)
+		p.fill_round_rect(-41.0, bar_y - 1.0, 82.0, 10.0, 5.0, Palette.PURPLE_400)
+		p.fill_round_rect(-40.0, bar_y, 80.0, 8.0, 4.0, Palette.SLATE_900)
+		p.fill_round_rect(-40.0, bar_y, 80.0 * minf(boss.eating_progress, 1.0), 8.0, 4.0, Palette.PURPLE_500)
 		p.text("吞噬首領！", 0.0, bar_y - 6.0, 10.0, Palette.PURPLE_100, true)
 	elif boss.is_filled():
 		p.text("瞄準首領按住吞噬！", 0.0, -boss.h - 18.0, 11.0, Palette.PURPLE_100, true)
@@ -333,7 +375,9 @@ func _paint_durability(p: Painter, sim: GameSim) -> void:
 	var t: float = view.time_ms
 	var icons_y: float = -boss.h - 52.0
 	var text_color: Color = Palette.PINK_100
-	p.text("護盾耐久", 0.0, icons_y - 14.0, 11.0, text_color, true)
+	var phase: int = BossBouncySlime.phase_for(boss.durability)
+	var label: String = ["護盾耐久", "狂怒・速度提升", "暴走・高速連彈"][phase]
+	p.text(label, 0.0, icons_y - 14.0, 11.0, text_color, true)
 	for i: int in BossState.MAX_DURABILITY:
 		var x: float = float(i - 1) * 22.0
 		p.icon_heart(x, icons_y, 16.0, Palette.PINK_500 if i < boss.durability else Palette.SLATE_700)
@@ -348,20 +392,20 @@ func _paint_durability(p: Painter, sim: GameSim) -> void:
 		progress = float(boss.max_cooldown - boss.cooldown) / float(boss.max_cooldown)
 	progress = clampf(progress, 0.0, 1.0)
 	var ready: bool = boss.state == BossState.State.CHARGING and progress >= 0.95
-	p.fill_rect(-65.0, bar_y, 130.0, 8.0, Color(Palette.SLATE_900, 0.85))
+	p.fill_round_rect(-65.0, bar_y, 130.0, 8.0, 4.0, Palette.PINK_200)
+	p.fill_round_rect(-64.0, bar_y + 1.0, 128.0, 6.0, 3.0, Palette.SLATE_900)
 	var bar_color: Color = Palette.PINK_600
 	if ready:
 		bar_color = Palette.PINK_400 if fmod(t, 160.0) < 80.0 else Palette.PINK_500
-	p.fill_rect(-63.5, bar_y + 1.5, 127.0 * progress, 5.0, bar_color)
-	p.stroke_rect(-65.0, bar_y, 130.0, 8.0, Palette.PINK_200, 1.0)
-	var label: String
+	p.fill_round_rect(-63.5, bar_y + 1.5, 127.0 * progress, 5.0, 2.5, bar_color)
+	var action_label: String
 	if ready:
-		label = "即將衝撞！"
+		action_label = "即將衝撞！"
 	elif boss.state == BossState.State.CHARGING:
-		label = "蓄力中 %d%%" % roundi(progress * 100.0)
+		action_label = "蓄力中 %d%%" % roundi(progress * 100.0)
 	else:
-		label = "休息中 %d%%" % roundi(progress * 100.0)
-	p.text(label, 0.0, bar_y - 6.0, 9.0, text_color, true)
+		action_label = "休息中 %d%%" % roundi(progress * 100.0)
+	p.text(action_label, 0.0, bar_y - 6.0, 9.0, text_color, true)
 
 func _charge_progress(boss: BossState) -> float:
 	if boss.max_charge_timer <= 0:
@@ -376,19 +420,22 @@ func _paint_shields(p: Painter, sim: GameSim) -> void:
 		if not shield.active:
 			continue
 		# Each shield is a glass tile.
-		TilePainter.draw(p, Tile.GLASS, shield.cx - _T / 2.0, shield.cy - _T / 2.0, view.time_ms)
+		var at: Vector2 = view.tween_position(shield.prev_cx, shield.prev_cy, shield.cx, shield.cy)
+		TilePainter.draw(p, Tile.GLASS, at.x - _T / 2.0, at.y - _T / 2.0, view.time_ms)
 		if shield.winding_up:
 			# The one about to be thrown flashes, faster as the throw nears.
 			var left: float = clampf(float(shield.windup_timer) / float(ShieldState.WINDUP_TICKS), 0.0, 1.0)
 			var flash: float = 0.45 + sin(view.time_ms / lerpf(22.0, 70.0, left)) * 0.4
-			p.fill_round_rect(shield.cx - _T / 2.0, shield.cy - _T / 2.0, _T, _T, 9.0, Color(Palette.WHITE, flash))
+			p.fill_round_rect(at.x - _T / 2.0, at.y - _T / 2.0, _T, _T, 9.0, Color(Palette.WHITE, flash))
 
 
-## Glass bombs remain visible in flight and explode at first contact.
+## Thrown glass remains visible in flight and shatters at first contact.
 func _paint_bombs(p: Painter, sim: GameSim) -> void:
 	for bomb: GlassBomb in sim.boss.bombs:
 		var at: Vector2 = view.tween_position(bomb.prev_x, bomb.prev_y, bomb.x, bomb.y)
 		var size: float = BossGlassSlime.BOMB_RADIUS * 2.0
+		var tail: Vector2 = at - Vector2(bomb.vx, bomb.vy).normalized() * 20.0
+		p.line(tail.x, tail.y, at.x, at.y, Color(Palette.CYAN_400, 0.45), 3.0)
 		p.push()
 		p.translate(at.x - size / 2.0, at.y - size / 2.0)
 		p.scale(size / _T, size / _T)
@@ -423,6 +470,12 @@ func _paint_glass_body(p: Painter, sim: GameSim) -> void:
 
 	# Durability pips, above the ring of shields.
 	var stunned: bool = boss.state == BossState.State.STUNNED
+	if stunned:
+		for star: int in 3:
+			var angle: float = view.time_ms / 450.0 + float(star) * TAU / 3.0
+			var at: Vector2 = Vector2(cos(angle) * 35.0, -boss.h - 24.0 + sin(angle) * 7.0)
+			p.fill_rect(at.x - 3.0, at.y - 1.0, 6.0, 2.0, Palette.YELLOW_200)
+			p.fill_rect(at.x - 1.0, at.y - 3.0, 2.0, 6.0, Palette.YELLOW_200)
 	for i: int in BossState.MAX_DURABILITY:
 		var lit: bool = i < boss.durability
 		var pip: Color = Palette.CYAN_400 if lit else Color("0f3a47")
@@ -479,8 +532,10 @@ func _paint_leap_preview(p: Painter, sim: GameSim, pos: Vector2) -> void:
 	var points: PackedVector2Array
 	var color: Color
 	if sim.boss_kind == BossState.Kind.BOUNCY_SLIME:
-		points = _simulate_bouncing_leap(sim, start)
-		color = Palette.PINK_600
+		# Show the upcoming motion, rather than overlapping an entire long
+		# pinball combo across the screen and burying the player in warnings.
+		points = _simulate_bouncing_leap(sim, start).slice(0, 90)
+		color = Palette.PINK_600.lerp(Palette.RED_400, float(BossBouncySlime.phase_for(boss.durability)) / 2.0)
 	elif sim.boss_kind == BossState.Kind.VOID_SLIME:
 		points = _simulate_smashing_leap(sim, start)
 		color = Palette.PURPLE_500
@@ -498,6 +553,10 @@ func _paint_leap_preview(p: Painter, sim: GameSim, pos: Vector2) -> void:
 		p.fill_rect(points[i].x - boss.w / 2.0, points[i].y - boss.h / 2.0, boss.w, boss.h, band)
 	p.dashed_polyline(points.slice(0, shown), Color(color.lightened(0.35), 0.35 + 0.4 * progress), 3.0, 10.0)
 	var landing: Vector2 = points[shown - 1]
+	if sim.boss_kind == BossState.Kind.BOUNCY_SLIME:
+		# This is the end of the short preview, not necessarily a landing.
+		p.stroke_circle(landing.x, landing.y, 7.0, Color(color.lightened(0.3), 0.75), 2.0)
+		return
 	p.fill_rect(
 		landing.x - boss.w / 2.0, landing.y - boss.h / 2.0, boss.w, boss.h,
 		Color(color, 0.25 + 0.35 * progress)
@@ -517,8 +576,11 @@ func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 	var half_h: float = boss.h / 2.0
 	var x: float = start.x
 	var y: float = start.y
-	var vx: float = BossBouncySlime.leap_vx(BossSystem.player_dx(sim))
-	var vy: float = -BossBouncySlime.LEAP_SPEED
+	var vx: float = BossBouncySlime.leap_vx(BossSystem.player_dx(sim), boss.durability)
+	var vy: float = -BossBouncySlime.leap_speed_for(boss.durability)
+	var restitution: float = BossBouncySlime.restitution_for(boss.durability)
+	var horizontal_limit: float = BossBouncySlime.horizontal_limit_for(boss.durability)
+	var vertical_limit: float = BossBouncySlime.vertical_limit_for(boss.durability)
 	var bounces: int = BossBouncySlime.bounces_for(boss.durability)
 	var points: PackedVector2Array = PackedVector2Array([start])
 
@@ -531,19 +593,19 @@ func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 				x = float(hit_col) * _T - half_w - 0.1
 			elif vx < 0.0:
 				x = float(hit_col + 1) * _T + half_w + 0.1
-			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
+			vx = -vx * restitution
 		y += vy
 
 		var right_limit: float = level.pixel_width() - _T - half_w
 		if x < _T + half_w:
 			x = _T + half_w
-			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
+			vx = -vx * restitution
 		elif x > right_limit:
 			x = right_limit
-			vx = -vx * BossBouncySlime.BOUNCE_RESTITUTION
+			vx = -vx * restitution
 		if y < _T + half_h:
 			y = _T + half_h
-			vy = -vy * BossBouncySlime.BOUNCE_RESTITUTION
+			vy = -vy * restitution
 		points.append(Vector2(x, y))
 
 		var r_floor: int = floori((y + half_h) / _T)
@@ -552,13 +614,13 @@ func _simulate_bouncing_leap(sim: GameSim, start: Vector2) -> PackedVector2Array
 			if bounces <= 0:
 				break
 			bounces -= 1
-			vy = -BossBouncySlime.LEAP_SPEED
+			vy = -BossBouncySlime.leap_speed_for(boss.durability)
 			if absf(vx) < 5.0:
-				vx = (1.0 if vx >= 0.0 else -1.0) * 6.0
+				vx = (1.0 if vx >= 0.0 else -1.0) * (6.0 + BossBouncySlime.phase_for(boss.durability))
 			else:
-				vx *= BossBouncySlime.BOUNCE_RESTITUTION
-		vx = clampf(vx, -BossBouncySlime.MAX_HORIZONTAL_SPEED, BossBouncySlime.MAX_HORIZONTAL_SPEED)
-		vy = clampf(vy, -BossBouncySlime.MAX_VERTICAL_SPEED, BossBouncySlime.MAX_VERTICAL_SPEED)
+				vx *= restitution
+		vx = clampf(vx, -horizontal_limit, horizontal_limit)
+		vy = clampf(vy, -vertical_limit, vertical_limit)
 	return points
 
 
@@ -638,3 +700,114 @@ func _paint_devour_beam(p: Painter, sim: GameSim, pos: Vector2) -> void:
 		curve.append(from.lerp(control, f).lerp(control.lerp(to, f), f))
 	p.dashed_polyline(curve, Color(Palette.PURPLE_500, 0.75), 6.0 + sin(t / 30.0) * 3.0, 9.0)
 	p.polyline(curve, Color(Palette.PURPLE_100, 0.9), 2.0)
+
+
+func _paint_mechanism(p: Painter, sim: GameSim) -> void:
+	var boss: BossState = sim.boss
+	if boss.state == BossState.State.SUSPENDED:
+		return
+	var data: BossState.MechanismData = boss.mechanism
+	var color: Color = WorldCatalog.accent(BossMechanism.world_for(boss.kind))
+	var pos: Vector2 = view.tween_position(boss.prev_x, boss.prev_y, boss.x, boss.y)
+	if boss.kind == BossState.Kind.ICE_SKATER:
+		var station: Vector2 = BossMechanism.cooling_station(sim)
+		var in_station: bool = absf(boss.center_x() - station.x) <= 45.0
+		var docked: bool = in_station and absf(boss.vx) < 0.5
+		var station_color: Color = Palette.LIME_400 if docked else color
+		p.fill_rect(station.x - 60.0, data.floor_y - 8.0, 120.0, 8.0, Color(station_color, 0.5))
+		p.fill_rect(station.x - 60.0, data.floor_y - boss.h - 7.0, 120.0, 4.0, Palette.SLATE_900)
+		p.fill_rect(station.x - 60.0, data.floor_y - boss.h - 7.0, 120.0 * float(data.dock_timer) / 60.0, 4.0, Palette.LIME_400)
+		var status: String = "保持停穩" if docked else ("反向射擊煞停" if in_station else "推入冷卻站")
+		p.text(status, station.x, data.floor_y - boss.h - 30.0, 10.0, station_color, true)
+		p.stroke_round_rect(station.x - 60.0, data.floor_y - boss.h, 120.0, boss.h, 8.0, Color(color, 0.4), 2.0)
+		p.text("冷卻站 %d · 低速停穩" % (data.progress + 1), station.x, data.floor_y - boss.h - 12.0, 11.0, color, true)
+	elif boss.kind == BossState.Kind.SAND_COLOSSUS:
+		p.stroke_round_rect(80.0, data.floor_y - 80.0, 80.0, 80.0, 8.0, Color(Palette.LIME_400, 0.5), 2.0)
+		p.text("← 帶回沙核", 120.0, data.floor_y - 92.0, 12.0, Palette.LIME_400, true)
+	elif boss.kind == BossState.Kind.RAIL_CARRIER:
+		var route: PackedVector2Array = PackedVector2Array()
+		for point: Vector2 in data.path:
+			route.append(point + Vector2(boss.w, boss.h) * 0.5)
+		p.polyline(route, Color(color, 0.35), 5.0)
+		for index: int in range(1, route.size()):
+			var point: Vector2 = route[index]
+			p.stroke_circle(point.x, point.y, 10.0, color, 2.0)
+			p.text("站 %d" % index, point.x, point.y - 18.0, 11.0, color, true)
+	if boss.state in [BossState.State.CHARGING, BossState.State.JUMPING]:
+		for zone: Rect2 in data.zones:
+			var active: bool = boss.state == BossState.State.JUMPING
+			p.fill_rect(zone.position.x, zone.position.y, zone.size.x, zone.size.y, Color(color, 0.45 if active else 0.10))
+			p.stroke_round_rect(zone.position.x, zone.position.y, zone.size.x, zone.size.y, 3.0, Color(color, 0.65), 2.0)
+			p.icon_warning(zone.get_center().x, data.floor_y - 20.0, 20.0, color)
+	p.stroke_round_rect(pos.x - 4.0, pos.y - 4.0, boss.w + 8.0, boss.h + 8.0, 12.0, Color(color, 0.55), 2.0)
+	p.fill_round_rect(pos.x, pos.y, boss.w, boss.h, 9.0, WorldCatalog.fill(BossMechanism.world_for(boss.kind)).darkened(0.5))
+	for row: int in 3:
+		for col: int in 3:
+			var type: int = BossMechanism.material(boss.kind)
+			if row == 1 and col == 1:
+				type = Tile.STEEL
+			if boss.kind == BossState.Kind.SENSOR_SENTINEL:
+				type = Tile.STEEL
+			elif boss.kind == BossState.Kind.RAIL_CARRIER:
+				type = boss.cell(row, col)
+			elif boss.kind == BossState.Kind.SAND_COLOSSUS and row == boss.center_r and col == boss.center_c:
+				type = Tile.AIR if data.core_stolen else Tile.SAND
+			TilePainter.draw(p, type, pos.x + float(col) * _T, pos.y + float(row) * _T, view.time_ms)
+	if boss.kind == BossState.Kind.SENSOR_SENTINEL:
+		for cell: Vector2i in BossMechanism.sensor_ports():
+			var rect: Rect2 = BossMechanism.port_rect(boss, cell)
+			var at: Vector2 = rect.position + pos - Vector2(boss.x, boss.y)
+			TilePainter.draw(p, boss.cell(cell.y, cell.x) if data.covered_ports.has(cell) else Tile.SENSOR, at.x, at.y, view.time_ms)
+			p.line(at.x + 20.0, at.y + 20.0, pos.x + 60.0, pos.y + 60.0, Palette.LIME_400 if data.covered_ports.has(cell) else Color(color, 0.3), 3.0)
+	elif boss.kind == BossState.Kind.RAIL_CARRIER:
+		TilePainter.draw(p, Tile.SENSOR, pos.x + 40.0, pos.y - 20.0, view.time_ms)
+		p.text("車頂補給", pos.x + 60.0, pos.y + boss.h + 16.0, 10.0, color, true)
+	elif boss.kind == BossState.Kind.SAND_COLOSSUS and not data.core_stolen:
+		p.stroke_circle(pos.x + 20.0, pos.y + 100.0, 23.0, Palette.YELLOW_200, 3.0)
+		p.text("沙核", pos.x + 20.0, pos.y + 78.0, 10.0, Palette.YELLOW_200, true)
+	if boss.damage_flash > 0.0:
+		p.fill_round_rect(pos.x, pos.y, boss.w, boss.h, 9.0, Color(Palette.WHITE, boss.damage_flash * 0.5))
+	p.push()
+	p.translate(pos.x + boss.w * 0.5, pos.y + boss.h)
+	_paint_face(p, sim, pos)
+	p.pop()
+	if boss.kind == BossState.Kind.ICE_SKATER:
+		if absf(boss.vx) > 0.1:
+			var direction: float = signf(boss.vx)
+			var from: Vector2 = pos + Vector2(boss.w * 0.5, boss.h * 0.8)
+			var tip: Vector2 = from + Vector2(direction * (24.0 + absf(boss.vx) * 7.0), 0.0)
+			p.line(from.x, from.y, tip.x, tip.y, Color(color, 0.7), 3.0)
+			p.line(tip.x, tip.y, tip.x - direction * 9.0, tip.y - 5.0, color, 2.0)
+			p.line(tip.x, tip.y, tip.x - direction * 9.0, tip.y + 5.0, color, 2.0)
+	var x: float = pos.x + boss.w * 0.5
+	var y: float = pos.y - 72.0
+	p.text(BossMechanism.name_for(boss.kind), x, y - 18.0, 13.0, color, true)
+	var label: String = ""
+	var progress: float = 0.0
+	match boss.kind:
+		BossState.Kind.SENSOR_SENTINEL:
+			label = "感測端 %d / 3 · 同時覆蓋" % data.covered_ports.size()
+			progress = float(data.dock_timer) / 90.0
+			if data.covered_ports.size() == 3:
+				label = "電路過載中！"
+		BossState.Kind.ICE_SKATER:
+			label = "冰壺冷卻 %d / 3 · 速度 %.1f" % [data.progress, absf(boss.vx)]
+			progress = float(data.dock_timer) / 60.0
+		BossState.Kind.SAND_COLOSSUS:
+			label = "沙核已奪取 · 帶回左側入口" if data.core_stolen else "吞下左下方沙核"
+			progress = clampf(1.0 - sim.player.x / maxf(1.0, data.origin.x), 0.0, 1.0) if data.core_stolen else 0.0
+		BossState.Kind.RAIL_CARRIER:
+			label = "運輸 %d / 3 · " % data.progress + ("訊號已收到" if data.signal_ready else "搭上車並送信號")
+			if data.age >= 90 and not BossMechanism.riding(sim):
+				label = "接回乘客 · 降回地面"
+			progress = float(data.progress) / 3.0
+		BossState.Kind.TNT_FURNACE:
+			label = "拆彈回投 %d / 3" % (3 - boss.durability)
+			progress = float(3 - boss.durability) / 3.0
+	if boss.state == BossState.State.INTRO:
+		label = "首領進場"
+	p.text(label, x, y + 4.0, 11.0, color, true)
+	p.fill_round_rect(x - 60.0, y + 12.0, 120.0, 5.0, 2.0, Palette.SLATE_900)
+	p.fill_round_rect(x - 60.0, y + 12.0, 120.0 * clampf(progress, 0.0, 1.0), 5.0, 2.0, color)
+	if boss.state == BossState.State.CHARGING and boss.kind != BossState.Kind.RAIL_CARRIER:
+		p.text("招式預告 · %d%%" % roundi(_charge_progress(boss) * 100.0), x, y + 34.0, 10.0, color, true)

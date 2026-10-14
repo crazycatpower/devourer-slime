@@ -18,6 +18,8 @@ static func update(sim: GameSim) -> void:
 	if sim.boss_kind == BossState.Kind.STEEL_CHASE:
 		BossSteelChase.update(sim)
 		return
+	if BossMechanism.is_kind(sim.boss_kind):
+		BossMechanism.update(sim)
 	match sim.boss_kind:
 		BossState.Kind.MUD_GOLEM:
 			BossMudGolem.update(sim)

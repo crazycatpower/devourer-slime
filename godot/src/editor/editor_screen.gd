@@ -21,6 +21,9 @@ const BRUSH_ORDER: Array[LevelEditor.Brush] = [
 	LevelEditor.Brush.GLASS, LevelEditor.Brush.VOID, LevelEditor.Brush.SPIKES,
 	LevelEditor.Brush.GOAL, LevelEditor.Brush.PLAYER, LevelEditor.Brush.ERASER,
 	LevelEditor.Brush.COPY, LevelEditor.Brush.PASTE,
+	LevelEditor.Brush.SENSOR, LevelEditor.Brush.WIRE,
+	LevelEditor.Brush.RAIL_RIGHT, LevelEditor.Brush.RAIL_LEFT, LevelEditor.Brush.RAIL_UP, LevelEditor.Brush.RAIL_DOWN,
+	LevelEditor.Brush.SAND, LevelEditor.Brush.ICE, LevelEditor.Brush.TNT,
 ]
 const SPIKE_LABELS: PackedStringArray = ["朝上", "朝右", "朝下", "朝左"]
 
@@ -37,6 +40,12 @@ var _preset_buttons: Array[Button] = []
 var _zoom_label: Button
 var _space_panning: bool = false
 var _saving: bool = false
+var _save_error: Error = OK
+var _rail_panel: VBoxContainer
+var _rail_auto_toggle: CheckButton
+var _cell_info: Label
+var _grid_toggle: Button
+var _devices_toggle: Button
 
 @onready var _backdrop: MenuBackdrop = %Backdrop
 @onready var _view: WorldView = %WorldView
@@ -81,6 +90,7 @@ func _ready() -> void:
 	_build_spike_buttons()
 	_build_preset_buttons()
 	_build_view_controls()
+	_build_rail_controls()
 
 	_view.sim = _sim
 	_view.editor = _editor
@@ -95,8 +105,8 @@ func _ready() -> void:
 	_play_button.pressed.connect(_on_play_pressed)
 	_prev_button.pressed.connect(_change_slot.bind(-1))
 	_next_button.pressed.connect(_change_slot.bind(1))
-	_undo_button.pressed.connect(_editor.undo)
-	_redo_button.pressed.connect(_editor.redo)
+	_undo_button.pressed.connect(_undo_action)
+	_redo_button.pressed.connect(_redo_action)
 	_width_minus.pressed.connect(_on_step_width.bind(-1))
 	_width_plus.pressed.connect(_on_step_width.bind(1))
 	_height_minus.pressed.connect(_on_step_height.bind(-1))
@@ -124,6 +134,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_view.editor_erasing = _erasing
+	_refresh_cell_info()
 	# A release outside the canvas or a lost focus must still finish the gesture.
 	if _painting and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT if not _erasing else MOUSE_BUTTON_RIGHT):
 		_end_stroke()
@@ -154,9 +165,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		if key.keycode >= KEY_1 and key.keycode <= KEY_9:
 			_end_stroke()
 			_editor.set_brush(BRUSH_ORDER[int(key.keycode - KEY_1)])
+		elif key.keycode == KEY_E:
+			_select_brush(LevelEditor.Brush.ERASER)
 		elif key.keycode == KEY_R:
 			_end_stroke()
-			_editor.set_spike_direction(posmod(_editor.spike_direction + 1, 4) as LevelEditor.SpikeDirection)
+			if Tile.is_rail(_editor.brush_tile()):
+				_editor.rotate_rail()
+			else:
+				_editor.set_spike_direction(posmod(_editor.spike_direction + 1, 4) as LevelEditor.SpikeDirection)
 		elif key.keycode == KEY_HOME:
 			_focus_start()
 		elif key.keycode == KEY_F:
@@ -268,18 +284,19 @@ func _begin_left_stroke() -> void:
 			_editor.stroke_to(cell, false)
 
 
-func _end_stroke() -> void:
+func _end_stroke() -> bool:
 	if not _painting:
-		return
-	_painting = false
+		return true
+	var copying: bool = _editor.brush == LevelEditor.Brush.COPY and not _erasing
 	_erasing = false
-	if _editor.brush == LevelEditor.Brush.COPY:
+	if copying:
 		_editor.finish_selection()
 		toast_requested.emit("已複製選取範圍，點一下即可貼上")
 	else:
+		# Commit while the gesture is active; history callbacks must not save twice.
 		_editor.end_stroke()
-	if _editor.is_dirty():
-		_auto_save()
+	_painting = false
+	return _auto_save() if _editor.is_dirty() else true
 
 
 func _hover_cell() -> Vector2i:
@@ -299,6 +316,7 @@ func _move_camera(offset: Vector2) -> void:
 # --- Slots, saving and leaving --------------------------------------------------------
 
 func _open_slot(slot: int) -> void:
+	_save_error = OK
 	_slot = slot
 	if LevelStore.is_custom_damaged(slot):
 		toast_requested.emit("SLOT %d 的存檔已損毀，改為載入內建關卡" % slot)
@@ -313,25 +331,35 @@ func _open_slot(slot: int) -> void:
 	_refresh_status()
 
 
-func _auto_save() -> void:
-	if _saving or not _editor.is_dirty():
-		return
+func _auto_save() -> bool:
+	if not _editor.is_dirty():
+		return true
+	if _saving:
+		return false
 	_saving = true
 	var error: Error = LevelStore.save_custom(_slot, _editor.level)
 	if error != OK:
-		toast_requested.emit("自動儲存失敗（%s）" % error_string(error))
+		_save_error = error
+		toast_requested.emit("自動儲存失敗（%s），修改仍保留，請重試儲存。" % error_string(error))
 		_saving = false
-		return
+		_refresh_status()
+		return false
+	_save_error = OK
 	_editor.mark_saved()
 	_saving = false
+	return true
 
 
 func _save() -> void:
-	_end_stroke()
+	if not _end_stroke():
+		return
 	var error: Error = LevelStore.save_custom(_slot, _editor.level)
 	if error != OK:
-		toast_requested.emit("儲存失敗（%s）" % error_string(error))
+		_save_error = error
+		toast_requested.emit("儲存失敗（%s），修改仍保留。" % error_string(error))
+		_refresh_status()
 		return
+	_save_error = OK
 	_editor.mark_saved()
 	toast_requested.emit("關卡已儲存")
 
@@ -345,9 +373,10 @@ func run_when_changes_settled(action: Callable) -> void:
 	var focus: Control = get_viewport().gui_get_focus_owner()
 	if focus != null and is_ancestor_of(focus):
 		focus.release_focus()
-	_end_stroke()
-	if _editor.is_dirty():
-		_auto_save()
+	if not _end_stroke():
+		return
+	if _editor.is_dirty() and not _auto_save():
+		return
 	action.call()
 
 
@@ -481,12 +510,28 @@ func _build_view_controls() -> void:
 			"起點":
 				button.tooltip_text = "回到玩家起點 (Home)"
 				button.pressed.connect(_focus_start)
+	for label: String in ["格線", "機關"]:
+		var toggle: Button = Button.new()
+		toggle.text = label
+		toggle.toggle_mode = true
+		toggle.button_pressed = true
+		toggle.focus_mode = Control.FOCUS_NONE
+		toggle.theme_type_variation = &"ChipButton"
+		bar.add_child(toggle)
+		if label == "格線":
+			_grid_toggle = toggle
+			toggle.tooltip_text = "顯示／隱藏編輯格線，不修改地圖"
+			toggle.toggled.connect(func(enabled: bool) -> void: _view.editor_show_grid = enabled)
+		else:
+			_devices_toggle = toggle
+			toggle.tooltip_text = "顯示／隱藏連線、感測器與軌道，不修改地圖"
+			toggle.toggled.connect(func(enabled: bool) -> void: _view.editor_show_devices = enabled)
 
 
 # --- Import and export -------------------------------------------------------------------
 
 func _on_export_slot_pressed() -> void:
-	DisplayServer.clipboard_set(JSON.stringify(Array(LevelCodec.encode(_editor.level))))
+	DisplayServer.clipboard_set(JSON.stringify(LevelCodec.encode_document(_editor.level)))
 	toast_requested.emit("已將目前關卡複製到剪貼簿")
 
 
@@ -500,9 +545,10 @@ func _on_export_all_pressed() -> void:
 
 
 func _on_import_pressed() -> void:
-	_end_stroke()
-	if _editor.is_dirty():
-		_auto_save()
+	if not _end_stroke():
+		return
+	if _editor.is_dirty() and not _auto_save():
+		return
 	var result: LevelRepository.ImportResult = LevelStore.import_text(_import_text.text, _slot)
 	if not result.ok:
 		_import_error.text = result.message
@@ -549,15 +595,18 @@ func _refresh_status() -> void:
 	_next_button.disabled = _display_slot() >= GameConstants.SLOT_COUNT
 
 	_slot_info.text = "SLOT %02d（WORLD %d）" % [_slot, world]
+	_size_info.text = "%d × %d" % [grid.cols, grid.rows]
 	_dirty_label.visible = true
 	if _editor.is_dirty():
-		_dirty_label.text = "● 編輯中..."
-		_dirty_label.add_theme_color_override(&"font_color", Palette.AMBER_400)
-		_save_button.text = "儲存中..."
+		_dirty_label.text = "儲存失敗 · 修改仍保留" if _save_error != OK else "● 編輯中..."
+		_dirty_label.add_theme_color_override(&"font_color", Palette.RED_400 if _save_error != OK else Palette.AMBER_400)
+		_save_button.text = "重試儲存" if _save_error != OK else "儲存中..."
+		_save_button.tooltip_text = error_string(_save_error) if _save_error != OK else "編輯完成後會自動儲存"
 	else:
 		_dirty_label.text = "✓ 已自動儲存"
 		_dirty_label.add_theme_color_override(&"font_color", Palette.EMERALD_400)
 		_save_button.text = "已自動儲存 AUTO SAVED"
+		_save_button.tooltip_text = "關卡修改已寫入存檔"
 	if not _width_value.has_focus():
 		_width_value.text = str(grid.cols)
 	if not _height_value.has_focus():
@@ -576,12 +625,33 @@ func _refresh_status() -> void:
 
 
 func _refresh_brushes() -> void:
+	_refresh_context_hint()
 	for brush: int in _brush_buttons:
 		_brush_buttons[brush].set_pressed_no_signal(brush == _editor.brush)
 	_brush_buttons[LevelEditor.Brush.PASTE].disabled = _editor.clipboard == null
+	_rail_panel.visible = Tile.is_rail(_editor.brush_tile())
 	_spike_panel.visible = _editor.brush == LevelEditor.Brush.SPIKES
 	for i: int in _spike_buttons.size():
 		_spike_buttons[i].set_pressed_no_signal(i == _editor.spike_direction)
+
+
+func _refresh_context_hint() -> void:
+	var hint: Label = $VBox/Body/HBox/CanvasArea/Hint
+	var text: String = "左鍵畫 · 右鍵清除整格 · 滾輪縮放 · 空白＋拖曳 · Alt 取材"
+	if Tile.is_rail(_editor.brush_tile()):
+		text = "拖曳自動轉彎" if _editor.rail_auto_turn else "固定方向繪製"
+		text += " · R 旋轉單格方向 · 右鍵只擦軌道 · Alt 取軌道"
+	elif _editor.brush == LevelEditor.Brush.WIRE:
+		text = "拖曳連接感測器與機關 · 右鍵只擦線 · 相交處共用信號"
+	elif _editor.brush == LevelEditor.Brush.SENSOR:
+		text = "可與方塊重疊 · 被方塊覆蓋時輸出信號 · 右鍵只擦感測器"
+	elif _editor.brush == LevelEditor.Brush.ERASER:
+		text = "拖曳清除方塊與全部機關 · 玩家起點保留 · Ctrl+Z 復原 · E 橡皮擦"
+	elif _editor.brush == LevelEditor.Brush.COPY:
+		text = "拖曳框選，放開後切換貼上 · 方塊與機關圖層一起複製"
+	elif _editor.brush == LevelEditor.Brush.PASTE:
+		text = "左鍵貼上預覽區域 · Ctrl+Z 復原 · 藍框外的格子不受影響"
+	hint.text = text
 
 
 func _build_brush_buttons() -> void:
@@ -594,7 +664,9 @@ func _build_brush_buttons() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var shortcut_index: int = BRUSH_ORDER.find(brush)
 		button.tooltip_text = "%s (%d)" % [BrushIcon.label_for(brush), shortcut_index + 1] if shortcut_index < 9 else BrushIcon.label_for(brush)
-		button.pressed.connect(_editor.set_brush.bind(brush))
+		if brush == LevelEditor.Brush.ERASER:
+			button.tooltip_text = "橡皮擦 (E)：清除同格方塊與全部機關；玩家起點保留"
+		button.pressed.connect(_select_brush.bind(brush))
 
 		# Icon above caption, laid out inside the button.
 		var content: VBoxContainer = VBoxContainer.new()
@@ -617,6 +689,55 @@ func _build_brush_buttons() -> void:
 
 		_brush_grid.add_child(button)
 		_brush_buttons[brush] = button
+
+
+func _build_rail_controls() -> void:
+	_rail_panel = VBoxContainer.new()
+	_brush_grid.get_parent().add_child(_rail_panel)
+	_brush_grid.get_parent().move_child(_rail_panel, _brush_grid.get_index() + 1)
+	_rail_auto_toggle = CheckButton.new()
+	_rail_auto_toggle.text = "拖曳軌道自動轉彎"
+	_rail_auto_toggle.button_pressed = _editor.rail_auto_turn
+	_rail_auto_toggle.focus_mode = Control.FOCUS_NONE
+	_rail_auto_toggle.toggled.connect(func(enabled: bool) -> void:
+		_end_stroke()
+		_editor.rail_auto_turn = enabled
+		_refresh_brushes()
+	)
+	_rail_panel.add_child(_rail_auto_toggle)
+	var help: Label = Label.new()
+	help.text = "沿拖曳方向前進 · R 旋轉單格方向\n右鍵只擦軌道，保留覆蓋的方塊"
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_font_size_override(&"font_size", 15)
+	_rail_panel.add_child(help)
+	_cell_info = Label.new()
+	_cell_info.text = "將滑鼠移到地圖，查看格子與機關"
+	_cell_info.add_theme_font_size_override(&"font_size", 15)
+	_cell_info.add_theme_color_override(&"font_color", Palette.SKY_400)
+	var hint: Label = $VBox/Body/HBox/CanvasArea/Hint
+	hint.get_parent().add_child(_cell_info)
+	hint.get_parent().move_child(_cell_info, hint.get_index())
+
+
+func _refresh_cell_info() -> void:
+	if _cell_info == null:
+		return
+	var cell: Vector2i = _hover_cell()
+	var grid: LevelGrid = _editor.level.grid
+	if not Rect2(Vector2.ZERO, _view.size).has_point(_view.get_local_mouse_position()) or not grid.in_bounds(cell.y, cell.x):
+		_cell_info.text = "筆刷：" + BrushIcon.label_for(_editor.brush)
+		return
+	var layers: PackedStringArray = []
+	if grid.get_cell(cell.y, cell.x) != Tile.AIR:
+		layers.append(BrushIcon.tile_label(grid.get_cell(cell.y, cell.x)))
+	if grid.sensors.has(cell):
+		layers.append("感測器")
+	if grid.wires.has(cell):
+		layers.append("連線")
+	if grid.rails.has(cell):
+		var labels: Dictionary[int, String] = {Tile.RAIL_RIGHT: "→", Tile.RAIL_LEFT: "←", Tile.RAIL_UP: "↑", Tile.RAIL_DOWN: "↓"}
+		layers.append("軌道 " + labels[grid.rails[cell]])
+	_cell_info.text = "格子 (%d, %d) · %s" % [cell.x + 1, cell.y + 1, " + ".join(layers) if not layers.is_empty() else "空格"]
 
 
 func _build_spike_buttons() -> void:
@@ -643,3 +764,20 @@ func _build_preset_buttons() -> void:
 		button.pressed.connect(_editor.resize.bind(preset.x, preset.y))
 		_preset_grid.add_child(button)
 		_preset_buttons.append(button)
+
+
+func _select_brush(brush: LevelEditor.Brush) -> void:
+	_end_stroke()
+	_editor.set_brush(brush)
+	# Clicking an already selected toggle must keep its active highlight.
+	_refresh_brushes()
+
+
+func _undo_action() -> void:
+	_end_stroke()
+	_editor.undo()
+
+
+func _redo_action() -> void:
+	_end_stroke()
+	_editor.redo()

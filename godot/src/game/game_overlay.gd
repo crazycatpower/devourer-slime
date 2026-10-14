@@ -1,8 +1,7 @@
 class_name GameOverlay
 extends Control
 ## Full-view overlays drawn over the world: the level's title card, the
-## bullet-time vignette, the boss entrance warning, the death flash and the
-## "wasted" / "level cleared" screens.
+## bullet-time vignette, boss entrance warning, rewind and level clear screens.
 ##
 ## Drawn in 960x540 canvas units, scaled to the view. The
 ## animations here are presentation only and run on real time.
@@ -10,8 +9,6 @@ extends Control
 const CANVAS_WIDTH: float = GameConstants.CANVAS_WIDTH
 const CANVAS_HEIGHT: float = GameConstants.CANVAS_HEIGHT
 const BAND_HEIGHT: float = 40.0
-## Ticks the screen flashes white when the player dies.
-const DEATH_FLASH_TICKS: int = 5
 
 ## The result screens darken the view over this long, their title lands
 ## over [constant TITLE_LAND_SEC], and each further line follows a beat later.
@@ -35,8 +32,10 @@ const VIGNETTE_STRENGTH: float = 0.2
 var sim: GameSim
 ## Lines shown under "level cleared", e.g. how to continue.
 var win_lines: PackedStringArray = PackedStringArray()
-## Line shown under "wasted".
+## Shortcut shown during the rewind.
 var retry_line: String = ""
+## Authored stage instruction; kept visible after the entrance card.
+var stage_hint: String = ""
 ## 0 at normal speed, 1 in full bullet time.
 var slow_amount: float = 0.0
 
@@ -47,7 +46,6 @@ var _card_age: float = INF
 ## Seconds the current result screen has been up.
 var exit_in_progress: bool = false
 var _won_age: float = 0.0
-var _dead_age: float = 0.0
 
 
 func _init() -> void:
@@ -65,7 +63,6 @@ func show_title_card(title: String, subtitle: String, color: Color) -> void:
 func _process(delta: float) -> void:
 	if sim != null:
 		_won_age = _won_age + delta if sim.player.won else 0.0
-		_dead_age = _dead_age + delta if sim.player.dead else 0.0
 	_card_age += delta
 	queue_redraw()
 
@@ -83,7 +80,7 @@ func _draw() -> void:
 
 	# Only the entrance that opens the fight gets the full-screen warning.
 	var boss_entrance: bool = (
-		sim.boss.active and sim.boss.state == BossState.State.INTRO
+		not sim.player.dead and not sim.player.won and sim.boss.active and sim.boss.state == BossState.State.INTRO
 		and (sim.boss.intro_freezes_player or sim.boss_kind == BossState.Kind.STEEL_CHASE)
 	)
 	if boss_entrance:
@@ -97,16 +94,35 @@ func _draw() -> void:
 			return
 		_draw_result(p, _won_age, "LEVEL CLEARED!", Palette.EMERALD_500, Color(0.0, 0.0, 0.0, 0.7), win_lines)
 	elif player.dead:
-		if sim.death_timer < DEATH_FLASH_TICKS:
-			p.fill_rect(0.0, 0.0, CANVAS_WIDTH, CANVAS_HEIGHT, Color(1.0, 1.0, 1.0, 0.85))
-		else:
-			_draw_result(
-				p, _dead_age - float(DEATH_FLASH_TICKS) / float(GameConstants.TICKS_PER_SECOND),
-				"WASTED", Palette.RED_500, Color(Palette.SLATE_900, 0.4),
-				PackedStringArray([retry_line])
-			)
+		_draw_rewind(p)
 	elif not boss_entrance:
 		_draw_title_card(p)
+		if sim.boss.active and BossMechanism.is_kind(sim.boss_kind):
+			var color: Color = WorldCatalog.accent(BossMechanism.world_for(sim.boss_kind))
+			p.fill_round_rect(246.0, CANVAS_HEIGHT - 38.0, 700.0, 26.0, 6.0, Color(Palette.SLATE_950, 0.8))
+			p.text(BossMechanism.hint(sim.boss_kind), 596.0, CANVAS_HEIGHT - 20.0, 12.0, color, true)
+			_draw_mechanism_navigation(p, color)
+		if not sim.boss.active and not stage_hint.is_empty():
+			var color: Color = WorldCatalog.accent(GameConstants.world_of_slot(sim.slot))
+			p.fill_round_rect(246.0, CANVAS_HEIGHT - 38.0, 700.0, 26.0, 6.0, Color(Palette.SLATE_950, 0.8))
+			p.text(stage_hint, 596.0, CANVAS_HEIGHT - 20.0, 12.0, color, true)
+		if not player.ability_label().is_empty():
+			p.fill_round_rect(14.0, CANVAS_HEIGHT - 38.0, 216.0, 26.0, 6.0, Color(Palette.SLATE_950, 0.8))
+			p.text(player.ability_label(), 25.0, CANVAS_HEIGHT - 20.0, 14.0, player.ability_color(), false, Painter.Align.LEFT)
+
+
+## Quiet rewind indicator; the world itself plays backwards behind it.
+func _draw_rewind(p: Painter) -> void:
+	var progress: float = clampf(float(sim.death_timer) / float(GameSim.DEATH_RESTART_TICKS), 0.0, 1.0)
+	var edge: Color = Color(Palette.CYAN_400, sin(progress * PI) * 0.12)
+	p.gradient_rect(0.0, 0.0, 90.0, CANVAS_HEIGHT, edge, Color(edge, 0.0))
+	p.gradient_rect(CANVAS_WIDTH - 90.0, 0.0, 90.0, CANVAS_HEIGHT, Color(edge, 0.0), edge)
+	p.fill_round_rect(366.0, 24.0, 228.0, 42.0, 10.0, Color(Palette.SLATE_950, 0.8))
+	for x: float in [385.0, 397.0]:
+		p.triangle(Vector2(x + 8.0, 36.0), Vector2(x, 44.0), Vector2(x + 8.0, 52.0), Palette.CYAN_200)
+	p.text("安全位置" if progress >= 0.92 else "時光倒流", 490.0, 49.0, 21.0, Palette.CYAN_200, true)
+	p.fill_round_rect(376.0, 59.0, 208.0 * (1.0 - progress), 3.0, 1.5, Palette.CYAN_400)
+	p.text(retry_line, CANVAS_WIDTH * 0.5, 84.0, 13.0, Palette.CYAN_200, true)
 
 
 ## A result screen: the view dims, the title lands, the lines follow.
@@ -198,3 +214,25 @@ func _draw_boss_intro(p: Painter, t: float) -> void:
 		"首領登場：%d 秒" % ceili(float(count) / 60.0), CANVAS_WIDTH / 2.0, CANVAS_HEIGHT / 2.0 + 30.0,
 		24.0, Palette.RED_500, true
 	)
+
+
+## Keep objectives discoverable when the next station or exit is off camera.
+func _draw_mechanism_navigation(p: Painter, color: Color) -> void:
+	if sim.boss.dead:
+		return
+	var at: float = 0.0
+	var label: String = ""
+	if sim.boss_kind == BossState.Kind.ICE_SKATER:
+		at = BossMechanism.cooling_station(sim).x
+		label = "冷卻站 %d" % (sim.boss.mechanism.progress + 1)
+	elif sim.boss_kind == BossState.Kind.SAND_COLOSSUS and sim.player.has_sand_core:
+		at = 120.0
+		label = "帶回入口"
+	else:
+		return
+	if at >= sim.camera.x + 40.0 and at <= sim.camera.x + GameConstants.VIEW_WIDTH - 40.0:
+		return
+	var arrow: String = "←" if at < sim.player.center_x() else "→"
+	var tiles: int = ceili(absf(at - sim.player.center_x()) / Tile.SIZE)
+	p.fill_round_rect(342.0, 62.0, 276.0, 30.0, 6.0, Color(Palette.SLATE_950, 0.8))
+	p.text("%s %s · 約 %d 格" % [arrow, label, tiles], CANVAS_WIDTH * 0.5, 82.0, 14.0, color, true)

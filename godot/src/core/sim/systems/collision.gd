@@ -5,6 +5,8 @@ extends RefCounted
 ## Bouncy tiles (or carrying a bouncy block) turn a collision into a bounce.
 
 const SKIN: float = 0.001
+## Above ordinary walking/jump impacts; only the velocity into the surface counts.
+const TNT_IMPACT_SPEED: float = 14.0
 const MIN_WALL_BOUNCE_SPEED: float = 5.5
 const WALL_BOUNCE_LOCK_TICKS: int = 12
 ## A fall shorter than this (less than 1 tile) lands on bouncy blocks without bouncing.
@@ -20,16 +22,14 @@ const BOUNCE_CLEARANCE: float = 3.0
 
 static func solve_x(sim: GameSim) -> void:
 	var p: PlayerState = sim.player
-	var is_player_bouncy: bool = p.has_block and p.carried_block_type == Tile.BOUNCY
+	var is_player_bouncy: bool = p.ability_type() == Tile.BOUNCY
 	var original_vx: float = p.vx
-	p.x += p.vx if p.grounded else p.vx * GameConstants.AIR_STEP
-
-	var blocks: Array[SolidBox] = sim.solid_boxes(p.x, p.y, p.w, p.h)
+	var blocks: Array[SolidBox] = _advance_axis(sim, true)
 	if blocks.is_empty():
 		return
 	# Whatever was left of a spit's sideways kick ends at the wall.
 	p.recoil_vx = 0.0
-	var bouncy_collision: bool = _any_bouncy(blocks) or is_player_bouncy
+	var bouncy_collision: bool = _surface_bouncy(blocks, p, true) or is_player_bouncy
 	var did_bounce: bool = false
 
 	if p.vx > 0.0:
@@ -57,6 +57,8 @@ static func solve_x(sim: GameSim) -> void:
 		if p.vy > 0.0 and sim.input.left and sim.rng.next_float() < 0.3:
 			sim.spawn_particles(p.x, p.y + p.h / 2.0, Palette.SLATE_400, 1, 1.0)
 
+	if absf(original_vx) >= TNT_IMPACT_SPEED:
+		MechanismSystem.detonate_carried_tnt(sim)
 	if did_bounce:
 		p.scale_x = 0.6
 		p.scale_y = 1.4
@@ -70,16 +72,15 @@ static func solve_x(sim: GameSim) -> void:
 
 static func solve_y(sim: GameSim) -> void:
 	var p: PlayerState = sim.player
-	var is_player_bouncy: bool = p.has_block and p.carried_block_type == Tile.BOUNCY
+	var is_player_bouncy: bool = p.ability_type() == Tile.BOUNCY
 	var original_vy: float = p.vy
-	p.y += p.vy * GameConstants.AIR_STEP
+	var blocks: Array[SolidBox] = _advance_axis(sim, false)
 	var was_grounded: bool = p.grounded
 	p.grounded = false
 
-	var blocks: Array[SolidBox] = sim.solid_boxes(p.x, p.y, p.w, p.h)
 	if blocks.is_empty():
 		return
-	var block_bouncy: bool = _any_bouncy(blocks)
+	var block_bouncy: bool = _surface_bouncy(blocks, p, false)
 	var bouncy_collision: bool = block_bouncy or is_player_bouncy
 
 	if p.vy > 0.0:
@@ -87,6 +88,8 @@ static func solve_y(sim: GameSim) -> void:
 		for b: SolidBox in blocks:
 			hit_y = minf(hit_y, b.y)
 		p.y = hit_y - p.h - SKIN
+		if original_vy >= TNT_IMPACT_SPEED:
+			MechanismSystem.detonate_carried_tnt(sim)
 
 		var fall_height: float = p.y - p.fall_start_y
 		if bouncy_collision and fall_height >= MIN_BOUNCE_FALL_HEIGHT:
@@ -128,6 +131,8 @@ static func solve_y(sim: GameSim) -> void:
 		for b: SolidBox in blocks:
 			hit_y = maxf(hit_y, b.y + b.h)
 		p.y = hit_y + SKIN
+		if -original_vy >= TNT_IMPACT_SPEED:
+			MechanismSystem.detonate_carried_tnt(sim)
 
 		p.scale_y = 0.8
 		p.scale_x = 1.2
@@ -142,11 +147,47 @@ static func solve_y(sim: GameSim) -> void:
 			p.vy = 0.0
 
 
-static func _any_bouncy(blocks: Array[SolidBox]) -> bool:
+## Fast carried TNT samples its path, avoiding skipped one-cell walls.
+## Ordinary materials retain the established collision behavior.
+static func _advance_axis(sim: GameSim, horizontal: bool) -> Array[SolidBox]:
+	var player: PlayerState = sim.player
+	var velocity: float = player.vx if horizontal else player.vy
+	var displacement: float = velocity * (1.0 if horizontal and player.grounded else GameConstants.AIR_STEP)
+	var steps: int = 1
+	if player.ability_type() == Tile.TNT and absf(velocity) >= TNT_IMPACT_SPEED:
+		steps = maxi(1, ceili(absf(displacement) / (Tile.SIZE * 0.5)))
+	for step: int in steps:
+		if horizontal:
+			player.x += displacement / steps
+		else:
+			player.y += displacement / steps
+		var blocks: Array[SolidBox] = sim.solid_boxes(player.x, player.y, player.w, player.h)
+		if not blocks.is_empty():
+			return blocks
+	return []
+
+
+## Only the stopping face contributes its material. At a mixed-material seam,
+## use the largest contact span so a tiny corner cannot override the main surface.
+static func _surface_bouncy(blocks: Array[SolidBox], p: PlayerState, horizontal: bool) -> bool:
+	var positive: bool = (p.vx if horizontal else p.vy) > 0.0
+	var face: float = INF if positive else -INF
 	for b: SolidBox in blocks:
-		if Tile.is_bouncy(b.type):
-			return true
-	return false
+		var edge: float = (b.x if positive else b.x + b.w) if horizontal else (b.y if positive else b.y + b.h)
+		face = minf(face, edge) if positive else maxf(face, edge)
+	var largest_span: float = -1.0
+	var bouncy: bool = false
+	for b: SolidBox in blocks:
+		var edge: float = (b.x if positive else b.x + b.w) if horizontal else (b.y if positive else b.y + b.h)
+		if absf(edge - face) > SKIN:
+			continue
+		var span: float = minf(p.y + p.h, b.y + b.h) - maxf(p.y, b.y) if horizontal else minf(p.x + p.w, b.x + b.w) - maxf(p.x, b.x)
+		if span > largest_span + SKIN:
+			largest_span = span
+			bouncy = Tile.is_bouncy(b.type)
+		elif absf(span - largest_span) <= SKIN:
+			bouncy = bouncy or Tile.is_bouncy(b.type)
+	return bouncy
 
 
 static func _bounce_color(is_player_bouncy: bool) -> Color:

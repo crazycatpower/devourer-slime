@@ -40,6 +40,8 @@ var _ticks_per_frame: float = 1.0
 var _bullet_time: BulletTimeGauge = BulletTimeGauge.new()
 var _win_recorded: bool = false
 var _completion_sent: bool = false
+var _rewind: DeathRewind = DeathRewind.new()
+var _recovering: bool = false
 
 @onready var _view: WorldView = %WorldView
 @onready var _overlay: GameOverlay = %GameOverlay
@@ -69,8 +71,11 @@ func _ready() -> void:
 	_sim.sfx_requested.connect(AudioDirector.play_sfx)
 	_sim.level_reset.connect(_bullet_time.refill)
 	_sim.level_reset.connect(_input.release_all)
+	_sim.level_reset.connect(_rewind.clear)
 	_sim.bullet_time_enabled = Settings.bullet_time_enabled
 	_sim.load_level(_slot, _level, LevelLibrary.boss_kind_for_slot(_slot))
+	_sim.external_death_recovery = true
+	_rewind.capture(_sim)
 
 	_view.sim = _sim
 	_view.gui_input.connect(_on_view_gui_input)
@@ -82,13 +87,20 @@ func _ready() -> void:
 	if _mode == Mode.TEST:
 		_level_label.text += "　測試中"
 	_level_label.add_theme_color_override(&"font_color", WorldCatalog.accent(world))
-	var subtitle: String = ""
+	var title: String = "WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), GameConstants.level_in_world(_slot)]
+	var subtitle: String = WorldCatalog.lesson(world, GameConstants.level_in_world(_slot))
+	var authored: bool = not LevelLibrary.stage_name(_slot).is_empty() and _level.equals(LevelLibrary.built_in_level(_slot))
+	if authored:
+		title = LevelLibrary.stage_name(_slot)
+		if _mode == Mode.OFFICIAL:
+			_overlay.stage_hint = LevelLibrary.stage_hint(_slot)
+	elif not LevelLibrary.stage_name(_slot).is_empty():
+		subtitle = "自訂關卡"
+	if BossMechanism.is_kind(_sim.boss_kind):
+		subtitle = BossMechanism.name_for(_sim.boss_kind) + " · " + BossMechanism.hint(_sim.boss_kind)
 	if _mode == Mode.TEST:
 		subtitle = "測試遊玩"
-	_overlay.show_title_card(
-		"WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), GameConstants.level_in_world(_slot)], subtitle,
-		WorldCatalog.accent(world)
-	)
+	_overlay.show_title_card(title, subtitle, WorldCatalog.accent(world))
 
 	_pause_button.pressed.connect(_open_pause_menu)
 	_pause_menu.closed.connect(_on_pause_menu_closed)
@@ -115,6 +127,8 @@ func _physics_process(delta: float) -> void:
 	var target_scale: float = BULLET_TIME_SCALE if slowed else 1.0
 	_time_scale += (target_scale - _time_scale) * TIME_SCALE_EASING
 	_ticks_per_frame = Settings.game_speed * _time_scale
+	if _sim.player.dead:
+		_ticks_per_frame = 1.0
 	_accumulator += _ticks_per_frame
 
 	var mouse: Vector2 = _view.mouse_in_view()
@@ -124,6 +138,17 @@ func _physics_process(delta: float) -> void:
 		_accumulator -= 1.0
 
 	_sim.update_camera()
+	if _sim.player.dead and not _recovering:
+		_recovering = true
+		_rewind.begin(_sim.tick_count)
+	if _recovering and _sim.player.dead and _sim.death_timer >= GameSim.DEATH_RESTART_TICKS:
+		if _rewind.recover(_sim):
+			_input.release_all()
+			_accumulator = 0.0
+			_time_scale = 1.0
+	if not _sim.player.dead:
+		_recovering = false
+	_rewind.capture(_sim)
 	var shake: float = _sim.camera.shake
 	_view.shake_offset = Vector2(randf() - 0.5, randf() - 0.5) * shake
 
@@ -143,6 +168,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	_view.rewinding = _sim.player.dead
+	_view.sim = _sim
+	if _view.rewinding:
+		var elapsed: float = float(_sim.death_timer) + Engine.get_physics_interpolation_fraction()
+		var progress: float = clampf(elapsed / float(GameSim.DEATH_RESTART_TICKS), 0.0, 1.0)
+		var history: GameSim = _rewind.visual_frame_at(progress)
+		if history != null:
+			_view.sim = history
+		_view.shake_offset = Vector2.ZERO
 	_overlay.exit_in_progress = _sim.player.won and not _view.exit_vortex.finished()
 	if _sim.player.won and _view.exit_vortex.finished() and _mode == Mode.OFFICIAL and not _completion_sent:
 		_completion_sent = true
@@ -151,8 +185,14 @@ func _process(_delta: float) -> void:
 	var fraction: float = Engine.get_physics_interpolation_fraction()
 	_view.tick_alpha = clampf(_accumulator + _ticks_per_frame * fraction, 0.0, 1.0)
 	_view.camera_alpha = fraction
+	if _view.rewinding:
+		_view.tick_alpha = 1.0
+		_view.camera_alpha = 1.0
 	_view.shoot_held = _input.is_held(InputBindings.SHOOT)
 	_view.eat_held = _input.is_held(InputBindings.EAT)
+	if _view.rewinding:
+		_view.shoot_held = false
+		_view.eat_held = false
 	_view.bullet_time_energy = _bullet_time.energy
 	_overlay.slow_amount = clampf((1.0 - _time_scale) / (1.0 - BULLET_TIME_SCALE), 0.0, 1.0)
 
@@ -189,6 +229,15 @@ func _handle_game_event(event: InputEvent) -> bool:
 
 
 func _restart() -> void:
+	if _sim.player.dead:
+		if not _recovering:
+			_rewind.begin(_sim.tick_count)
+		if _rewind.recover(_sim):
+			_recovering = false
+			_input.release_all()
+			_accumulator = 0.0
+			_time_scale = 1.0
+			return
 	_sim.reset()
 	_view.exit_vortex.reset()
 	_completion_sent = false
@@ -248,10 +297,10 @@ func _refresh_hints() -> void:
 	var restart_key: String = InputBindings.describe(Settings.binding(InputBindings.RESTART))
 	var next_step: String = "返回編輯器"
 	if _mode == Mode.OFFICIAL:
-		next_step = "前往下一關" if WorldCatalog.next_slot(_slot) != 0 else "返回選單"
+		next_step = "前往下一關" if LevelStore.next_campaign_slot(_slot) != 0 else "返回選單"
 	_overlay.win_lines = PackedStringArray([
 		"旋渦將帶你%s（[%s] / Enter 可略過）" % [next_step, jump_key] if _mode == Mode.OFFICIAL else "按 [%s] 或 [Enter] %s" % [jump_key, next_step],
 		"按 [%s] 重玩這一關" % restart_key,
 	])
-	_overlay.retry_line = "按 [%s] 立即重試" % restart_key
+	_overlay.retry_line = "回到安全位置 · [%s] 略過倒流" % restart_key
 	_pause_button.text = "暫停 / 設定 (Esc)"

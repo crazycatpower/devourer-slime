@@ -13,7 +13,7 @@ signal brush_changed
 ## Undo/redo availability or the unsaved flag changed.
 signal history_changed
 
-enum Brush { DIRT, BOUNCY, STEEL, GLASS, VOID, SPIKES, GOAL, PLAYER, COPY, PASTE, ERASER }
+enum Brush { DIRT, BOUNCY, STEEL, GLASS, VOID, SPIKES, GOAL, PLAYER, COPY, PASTE, ERASER, SENSOR, RAIL_RIGHT, RAIL_LEFT, SAND, ICE, TNT, WIRE, RAIL_UP, RAIL_DOWN }
 enum SpikeDirection { UP, RIGHT, DOWN, LEFT }
 
 const MAX_HISTORY: int = 100
@@ -23,6 +23,10 @@ const NO_CELL: Vector2i = Vector2i(-1, -1)
 var level: LevelData = LevelData.new()
 var brush: Brush = Brush.DIRT
 var spike_direction: SpikeDirection = SpikeDirection.UP
+## Dragged tracks follow the gesture; single clicks retain the selected arrow.
+var rail_auto_turn: bool = true
+var _batching_changes: bool = false
+var _batch_changed: bool = false
 ## Tiles captured by the copy brush; null until something has been copied.
 var clipboard: LevelGrid
 ## Corners of the copy selection being dragged, or [constant NO_CELL].
@@ -48,7 +52,7 @@ func open(data: LevelData) -> void:
 	_stroke_snapshot = null
 	selection_start = NO_CELL
 	selection_end = NO_CELL
-	changed.emit()
+	_notify_changed()
 	history_changed.emit()
 
 
@@ -82,6 +86,11 @@ func set_brush(value: Brush) -> void:
 	brush_changed.emit()
 
 
+func rotate_rail() -> void:
+	var directions: Array[Brush] = [Brush.RAIL_RIGHT, Brush.RAIL_DOWN, Brush.RAIL_LEFT, Brush.RAIL_UP]
+	set_brush(directions[(directions.find(brush) + 1) % 4])
+
+
 func set_spike_direction(value: SpikeDirection) -> void:
 	if value == spike_direction and brush == Brush.SPIKES:
 		return
@@ -93,6 +102,22 @@ func set_spike_direction(value: SpikeDirection) -> void:
 ## Tile the current brush paints, or -1 for brushes that do not paint tiles.
 func brush_tile() -> int:
 	match brush:
+		Brush.SENSOR:
+			return Tile.SENSOR
+		Brush.RAIL_RIGHT:
+			return Tile.RAIL_RIGHT
+		Brush.RAIL_LEFT:
+			return Tile.RAIL_LEFT
+		Brush.RAIL_UP:
+			return Tile.RAIL_UP
+		Brush.RAIL_DOWN:
+			return Tile.RAIL_DOWN
+		Brush.SAND:
+			return Tile.SAND
+		Brush.ICE:
+			return Tile.ICE
+		Brush.TNT:
+			return Tile.TNT
 		Brush.DIRT:
 			return Tile.DIRT
 		Brush.BOUNCY:
@@ -139,12 +164,39 @@ func begin_stroke() -> void:
 func stroke_to(cell: Vector2i, erase: bool) -> void:
 	if _stroke_snapshot == null:
 		begin_stroke()
+	_batching_changes = true
+	_batch_changed = false
 	if _last_cell == NO_CELL:
 		_apply(cell, erase)
 	elif cell != _last_cell:
+		var previous: Vector2i = _last_cell
+		var rail: bool = Tile.is_rail(brush_tile())
 		for step: Vector2i in _line(_last_cell, cell).slice(1):
-			_apply(step, erase)
+			if (brush == Brush.WIRE or rail) and step.x != previous.x and step.y != previous.y:
+				var bridge: Vector2i = Vector2i(step.x, previous.y)
+				_path_step(previous, bridge, erase)
+				previous = bridge
+			_path_step(previous, step, erase)
+			previous = step
 	_last_cell = cell
+	_batching_changes = false
+	if _batch_changed:
+		_notify_changed()
+
+
+func _path_step(from: Vector2i, to: Vector2i, erase: bool) -> void:
+	if not erase and rail_auto_turn and Tile.is_rail(brush_tile()) and level.grid.in_bounds(from.y, from.x) and level.grid.in_bounds(to.y, to.x):
+		var type: int = Tile.RAIL_RIGHT
+		match to - from:
+			Vector2i.LEFT: type = Tile.RAIL_LEFT
+			Vector2i.UP: type = Tile.RAIL_UP
+			Vector2i.DOWN: type = Tile.RAIL_DOWN
+		_set_rail(from, type)
+		# Preserve an existing endpoint, including the start when closing a loop.
+		if not level.grid.rails.has(to):
+			_set_rail(to, type)
+	else:
+		_apply(to, erase)
 
 
 func end_stroke() -> void:
@@ -169,11 +221,15 @@ func paste_at(cell: Vector2i) -> void:
 	for r: int in clipboard.rows:
 		for c: int in clipboard.cols:
 			var target: Vector2i = Vector2i(cell.x + c, cell.y + r)
-			if grid.in_bounds(target.y, target.x) and target != level.start_cell:
-				grid.set_cell(target.y, target.x, clipboard.get_cell(r, c))
+			if grid.in_bounds(target.y, target.x):
+				if target != level.start_cell:
+					grid.set_cell(target.y, target.x, clipboard.get_cell(r, c))
+				grid.set_wire(target, clipboard.wires.has(Vector2i(c, r)))
+				grid.set_sensor(target, clipboard.sensors.has(Vector2i(c, r)))
+				grid.set_rail(target, clipboard.rails.get(Vector2i(c, r), Tile.AIR) as int)
 	if not level.equals(before):
 		_commit(before)
-		changed.emit()
+		_notify_changed()
 
 
 # --- Copy selection -----------------------------------------------------------------
@@ -197,6 +253,9 @@ func finish_selection() -> void:
 	for r: int in area.size.y:
 		for c: int in area.size.x:
 			clipboard.set_cell(r, c, level.grid.get_cell(area.position.y + r, area.position.x + c))
+			clipboard.set_wire(Vector2i(c, r), level.grid.wires.has(area.position + Vector2i(c, r)))
+			clipboard.set_sensor(Vector2i(c, r), level.grid.sensors.has(area.position + Vector2i(c, r)))
+			clipboard.set_rail(Vector2i(c, r), level.grid.rails.get(area.position + Vector2i(c, r), Tile.AIR) as int)
 	selection_start = NO_CELL
 	selection_end = NO_CELL
 	brush = Brush.PASTE
@@ -227,7 +286,7 @@ func resize(cols: int, rows: int) -> void:
 		level.start_cell = LevelCodec.find_free_cell(level.grid)
 	level.grid.set_cell(level.start_cell.y, level.start_cell.x, Tile.AIR)
 	_commit(before)
-	changed.emit()
+	_notify_changed()
 
 
 ## Empties the level, leaving only the steel border.
@@ -239,7 +298,7 @@ func clear() -> void:
 		level.start_cell = Vector2i(1, 1)
 	if not level.equals(before):
 		_commit(before)
-		changed.emit()
+		_notify_changed()
 
 
 func undo() -> void:
@@ -249,7 +308,7 @@ func undo() -> void:
 	_redo.append(level)
 	level = _undo.pop_back()
 	_dirty = true
-	changed.emit()
+	_notify_changed()
 	history_changed.emit()
 
 
@@ -260,7 +319,7 @@ func redo() -> void:
 	_undo.append(level)
 	level = _redo.pop_back()
 	_dirty = true
-	changed.emit()
+	_notify_changed()
 	history_changed.emit()
 
 
@@ -274,7 +333,21 @@ func pick_brush(cell: Vector2i) -> void:
 	if cell == level.start_cell:
 		set_brush(Brush.PLAYER)
 		return
+	if brush == Brush.SENSOR and level.grid.sensors.has(cell):
+		return
+	if brush == Brush.WIRE and level.grid.wires.has(cell):
+		return
 	var tile: int = level.grid.get_cell(cell.y, cell.x)
+	if Tile.is_rail(brush_tile()) and level.grid.rails.has(cell):
+		tile = level.grid.rails[cell]
+	if tile == Tile.AIR and level.grid.sensors.has(cell):
+		set_brush(Brush.SENSOR)
+		return
+	if tile == Tile.AIR and level.grid.wires.has(cell):
+		set_brush(Brush.WIRE)
+		return
+	if tile == Tile.AIR and level.grid.rails.has(cell):
+		tile = level.grid.rails[cell]
 	if Tile.is_spike(tile):
 		for direction: int in 4:
 			if spike_tile(direction as SpikeDirection) == tile:
@@ -286,6 +359,9 @@ func pick_brush(cell: Vector2i) -> void:
 		Tile.DIRT_EATEN_2: Brush.DIRT, Tile.STEEL: Brush.STEEL, Tile.BOUNCY: Brush.BOUNCY,
 		Tile.BOUNCY_EATEN_1: Brush.BOUNCY, Tile.BOUNCY_EATEN_2: Brush.BOUNCY,
 		Tile.GLASS: Brush.GLASS, Tile.VOID: Brush.VOID, Tile.GOAL: Brush.GOAL,
+		Tile.SENSOR: Brush.SENSOR, Tile.RAIL_RIGHT: Brush.RAIL_RIGHT, Tile.RAIL_LEFT: Brush.RAIL_LEFT,
+		Tile.RAIL_UP: Brush.RAIL_UP, Tile.RAIL_DOWN: Brush.RAIL_DOWN,
+		Tile.SAND: Brush.SAND, Tile.ICE: Brush.ICE, Tile.TNT: Brush.TNT,
 	}
 	if mapping.has(tile):
 		set_brush(mapping[tile] as Brush)
@@ -294,16 +370,33 @@ func _apply(cell: Vector2i, erase: bool) -> void:
 	var grid: LevelGrid = level.grid
 	if not grid.in_bounds(cell.y, cell.x):
 		return
+	if brush == Brush.WIRE:
+		_set_wire(cell, not erase)
+		return
+	if brush == Brush.SENSOR:
+		_set_sensor(cell, not erase)
+		return
+	if Tile.is_rail(brush_tile()):
+		_set_rail(cell, Tile.AIR if erase else brush_tile())
+		return
 	if erase:
 		_set_tile(cell, Tile.AIR)
+		_set_wire(cell, false)
+		_set_sensor(cell, false)
+		_set_rail(cell, Tile.AIR)
 		return
 	match brush:
+		Brush.ERASER:
+			_set_tile(cell, Tile.AIR)
+			_set_wire(cell, false)
+			_set_sensor(cell, false)
+			_set_rail(cell, Tile.AIR)
 		Brush.PLAYER:
 			if cell != level.start_cell:
 				level.start_cell = cell
 				grid.set_cell(cell.y, cell.x, Tile.AIR)
 				_stroke_changed = true
-				changed.emit()
+				_notify_changed()
 		Brush.SPIKES:
 			_orient_spikes(cell)
 			_set_tile(cell, spike_tile(spike_direction))
@@ -311,6 +404,30 @@ func _apply(cell: Vector2i, erase: bool) -> void:
 			pass
 		_:
 			_set_tile(cell, brush_tile())
+
+
+func _set_rail(cell: Vector2i, type: int) -> void:
+	if level.grid.rails.get(cell, Tile.AIR) == type:
+		return
+	level.grid.set_rail(cell, type)
+	_stroke_changed = true
+	_notify_changed()
+
+
+func _set_sensor(cell: Vector2i, present: bool) -> void:
+	if level.grid.sensors.has(cell) == present:
+		return
+	level.grid.set_sensor(cell, present)
+	_stroke_changed = true
+	_notify_changed()
+
+
+func _set_wire(cell: Vector2i, present: bool) -> void:
+	if level.grid.wires.has(cell) == present:
+		return
+	level.grid.set_wire(cell, present)
+	_stroke_changed = true
+	_notify_changed()
 
 
 func _set_tile(cell: Vector2i, tile: int) -> void:
@@ -321,7 +438,7 @@ func _set_tile(cell: Vector2i, tile: int) -> void:
 		return
 	level.grid.set_cell(cell.y, cell.x, tile)
 	_stroke_changed = true
-	changed.emit()
+	_notify_changed()
 
 
 ## Spikes painted next to exactly one solid neighbour turn to grow out of it.
@@ -387,3 +504,10 @@ static func _line(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 			error += dx
 			current.y += sy
 	return cells
+
+
+func _notify_changed() -> void:
+	if _batching_changes:
+		_batch_changed = true
+	else:
+		changed.emit()

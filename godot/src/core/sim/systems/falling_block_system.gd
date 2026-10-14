@@ -27,14 +27,14 @@ static func update(sim: GameSim) -> void:
 			player.x + player.w <= fb.x - HALF or player.x >= fb.x + HALF
 			or player.y + player.h <= fb.y - HALF or player.y >= fb.y + HALF
 		)
-		if overlaps_player and sim.kill_player():
+		if fb.lethal and overlaps_player and sim.kill_player():
 			sim.spawn_particles(player.center_x(), player.center_y(), Palette.BLACK, 40, 8.0)
 			sim.spawn_particles(player.center_x(), player.center_y(), Palette.RED_500, 20, 6.0)
 			sim.play(Sfx.Id.HURT)
 
 		if row >= 1 and row < level.rows and col >= 0 and col < level.cols:
 			var current_cell: int = level.get_cell(row, col)
-			var rand_type: int = _roll_landing_type(sim)
+			var rand_type: int = fb.type if fb.fixed_landing_type else _roll_landing_type(sim)
 
 			# A block that drops into a void trap plugs it.
 			if current_cell == Tile.VOID:
@@ -52,10 +52,29 @@ static func update(sim: GameSim) -> void:
 				sim.falling_blocks.remove_at(i)
 				continue
 
+			if fb.fixed_landing_type and fb.type in [Tile.ICE, Tile.SAND] and MechanismSystem.sharp_spike(current_cell):
+				sim.spawn_particles(fb.x, fb.y, sim.debris_color(fb.type), 12, 3.0)
+				sim.falling_blocks.remove_at(i)
+				continue
 			if Tile.is_solid(current_cell):
 				var land_row: int = row - 1
 				if land_row >= 1 and level.get_cell(land_row, col) == Tile.AIR:
+					# Safe ammunition may be collected under its fall; do not entomb its collector.
+					if not fb.lethal:
+						var landing: Rect2 = Rect2(float(col) * Tile.SIZE, float(land_row) * Tile.SIZE, Tile.SIZE, Tile.SIZE)
+						if landing.intersects(Rect2(player.x, player.y, player.w, player.h)):
+							var left_x: float = landing.position.x - player.w - 0.1
+							var right_x: float = landing.end.x + 0.1
+							if sim.solid_boxes(left_x, player.y, player.w, player.h).is_empty():
+								player.x = left_x
+							elif sim.solid_boxes(right_x, player.y, player.w, player.h).is_empty():
+								player.x = right_x
+							else:
+								sim.falling_blocks.remove_at(i)
+								continue
 					level.set_cell(land_row, col, rand_type)
+					if rand_type in [Tile.ICE, Tile.SAND, Tile.TNT]:
+						sim.mechanisms_enabled = true
 					sim.spawn_particles(
 						float(col) * Tile.SIZE + 20.0, float(land_row) * Tile.SIZE + 20.0,
 						_landing_color(rand_type, true), 20, 5.0

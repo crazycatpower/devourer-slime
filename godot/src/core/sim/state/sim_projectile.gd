@@ -18,3 +18,8 @@ var eaten_count: int = 0
 var bounce_count: int = 0
 ## Boss projectiles kill the player on contact.
 var is_enemy: bool = false
+## Armed TNT keeps the same 0.4-second fuse through flight and impact.
+var fuse_ticks: int = -1
+var fuse_start_tick: int = -1
+
+var returned_charge: bool = false

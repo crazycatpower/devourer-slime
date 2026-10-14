@@ -1,7 +1,8 @@
 class_name MainMenu
 extends Control
-## The title screen and level select: five worlds of ten slots each, in two
-## tabs, one for playing and one for building.
+## The title screen and level select: worlds of ten slots each, in two tabs,
+## one for playing and one for building. The play tab only lists worlds that
+## have levels; the build tab lists every world, so new ones can be started.
 
 signal play_requested(slot: int)
 signal edit_requested(slot: int)
@@ -10,6 +11,9 @@ signal test_requested(slot: int)
 const LEVEL_CARD: PackedScene = preload("res://src/ui/menu/level_card.tscn")
 ## Slots shown in the grid; the tenth slot of a world is the wide boss card.
 const GRID_SLOTS: int = GameConstants.LEVELS_PER_WORLD - 1
+## World buttons per row: worlds one to five above the levels, six to ten
+## below them.
+const WORLDS_PER_ROW: int = 5
 ## Delay between one level card appearing and the next.
 const CARD_STAGGER_SEC: float = 0.022
 
@@ -18,6 +22,8 @@ var _custom_tab: bool = false
 var _cards: Array[LevelCard] = []
 var _world_buttons: Array[Button] = []
 var _world_captions: Array[Label] = []
+## The second row of world buttons, created below the level cards.
+var _lower_world_tabs: HBoxContainer
 
 @onready var _backdrop: MenuBackdrop = %Backdrop
 @onready var _logo: SlimeIcon = %Logo
@@ -54,8 +60,14 @@ func is_custom_tab() -> bool:
 
 
 func _ready() -> void:
-	for world: int in WorldCatalog.ORDER:
-		_world_tabs.add_child(_make_world_button(world))
+	_lower_world_tabs = HBoxContainer.new()
+	_lower_world_tabs.name = "LowerWorldTabs"
+	_lower_world_tabs.add_theme_constant_override(&"separation", _world_tabs.get_theme_constant(&"separation"))
+	# Under the levels: the second group of worlds sits below the boss card.
+	_boss_card.add_sibling(_lower_world_tabs)
+	for i: int in WorldCatalog.ORDER.size():
+		var row: HBoxContainer = _world_tabs if i < WORLDS_PER_ROW else _lower_world_tabs
+		row.add_child(_make_world_button(WorldCatalog.ORDER[i]))
 	for _i: int in GRID_SLOTS:
 		var card: LevelCard = LEVEL_CARD.instantiate()
 		_grid.add_child(card)
@@ -88,7 +100,7 @@ func _make_world_button(world: int) -> Button:
 	var button: Button = Button.new()
 	button.theme_type_variation = &"ChipButton"
 	button.toggle_mode = true
-	button.custom_minimum_size = Vector2(0.0, 64.0)
+	button.custom_minimum_size = Vector2(0.0, 54.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(_select_world.bind(world))
 
@@ -105,8 +117,10 @@ func _make_world_button(world: int) -> Button:
 	content.add_child(icon)
 	var caption: Label = Label.new()
 	caption.text = "WORLD %02d" % WorldCatalog.display_world(world)
+	if world >= 6:
+		caption.text += "\n" + WorldCatalog.name_for(world)
 	caption.theme_type_variation = &"HeadingLabel"
-	caption.add_theme_font_size_override(&"font_size", 21)
+	caption.add_theme_font_size_override(&"font_size", 18 if world >= 6 else 21)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(caption)
 	button.add_child(content)
@@ -141,7 +155,39 @@ func _animate_cards() -> void:
 	UiMotion.rise_in(_boss_card, float(_cards.size()) * CARD_STAGGER_SEC)
 
 
+## True when [param world] is listed in the current tab.
+func _is_world_listed(world: int) -> bool:
+	return _custom_tab or LevelStore.world_has_levels(world)
+
+
+## Shows the buttons of the listed worlds. A row with none is hidden; in a
+## row with some, the others keep their place as blanks so that every world
+## stays in its own column.
+func _lay_out_world_rows() -> void:
+	for first: int in range(0, _world_buttons.size(), WORLDS_PER_ROW):
+		var last: int = mini(first + WORLDS_PER_ROW, _world_buttons.size())
+		var any_listed: bool = false
+		for i: int in range(first, last):
+			any_listed = any_listed or _is_world_listed(WorldCatalog.ORDER[i])
+		for i: int in range(first, last):
+			var listed: bool = _is_world_listed(WorldCatalog.ORDER[i])
+			var button: Button = _world_buttons[i]
+			button.visible = any_listed
+			button.disabled = not listed
+			button.modulate.a = 1.0 if listed else 0.0
+			button.mouse_filter = Control.MOUSE_FILTER_STOP if listed else Control.MOUSE_FILTER_IGNORE
+			button.focus_mode = Control.FOCUS_ALL if listed else Control.FOCUS_NONE
+	_lower_world_tabs.visible = _world_buttons.size() > WORLDS_PER_ROW and _world_buttons[WORLDS_PER_ROW].visible
+
+
 func _refresh() -> void:
+	# A world that is not listed here cannot stay selected.
+	if not _is_world_listed(_world):
+		for world: int in WorldCatalog.ORDER:
+			if _is_world_listed(world):
+				_world = world
+				break
+	_lay_out_world_rows()
 	var accent: Color = WorldCatalog.accent(_world)
 	_backdrop.glow_color = WorldCatalog.fill(_world)
 	_logo.body_color = WorldCatalog.fill(_world)
@@ -165,7 +211,7 @@ func _refresh() -> void:
 				saved += 1
 		_progress_label.text = "已儲存 %d 個自訂關卡" % saved
 	else:
-		_progress_label.text = "已通關 %d / %d" % [Progress.cleared_count(), GameConstants.SLOT_COUNT]
+		_progress_label.text = "已通關 %d / %d" % [Progress.cleared_count(), LevelStore.level_count()]
 
 	var first_slot: int = (_world - 1) * GameConstants.LEVELS_PER_WORLD + 1
 	for i: int in _cards.size():

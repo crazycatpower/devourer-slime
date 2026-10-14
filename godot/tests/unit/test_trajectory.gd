@@ -94,3 +94,22 @@ func test_boss_contacts_in_preview_do_not_consume_shields_or_blocks() -> void:
 		check_eq(sim.boss.grid, grid)
 		check_eq(sim.boss.durability, durability)
 		check_eq(sim.particles.size(), 0)
+
+
+func test_tnt_preview_ends_where_the_airborne_fuse_expires() -> void:
+	var sim: GameSim = _sim(10)
+	sim.player.place_at(400.0, 160.0)
+	sim.player.carried_block_type = Tile.TNT
+	var aim: PlayerSystem.Aim = PlayerSystem.Aim.new()
+	var points: PackedVector2Array = ProjectileSystem.preview_path(sim, aim)
+	PlayerSystem._fire(sim, aim)
+	var shot: SimProjectile = sim.projectiles[0]
+	# Fire's own tick does not age the fuse, exactly as GameSim.step orders it.
+	ProjectileSystem.update(sim)
+	for tick: int in MechanismSystem.TNT_FUSE_TICKS:
+		sim.tick_count += 1
+		ProjectileSystem.update(sim)
+	check(sim.projectiles.is_empty(), "TNT has exploded before the old 40-tick horizon")
+	var actual: Vector2 = Vector2(shot.x + shot.w * 0.5, shot.y + shot.h * 0.5)
+	check_near(points[-1].x, actual.x, 0.001, "preview never extends beyond the fuse endpoint")
+	check_near(points[-1].y, actual.y, 0.001)

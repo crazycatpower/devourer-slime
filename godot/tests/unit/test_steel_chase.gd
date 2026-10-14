@@ -56,16 +56,21 @@ func test_retry_warning_is_exactly_one_second_and_entry_is_continuous() -> void:
 		check_eq(sim.boss.intro_timer, duration)
 		var x: float = sim.player.x
 		var y: float = sim.player.y
+		var entry_steps: Array[float] = []
 		for tick: int in duration:
 			var previous_x: float = sim.boss.x
 			sim.step(run)
 			check_eq(sim.player.x, x)
 			check_eq(sim.player.y, y)
-			check(sim.boss.x > previous_x and sim.boss.x - previous_x < 3.0, "smooth entry independent of chase speed")
+			var movement: float = sim.boss.x - previous_x
+			entry_steps.append(movement)
+			check(movement > 0.0 and movement < 4.5, "eased entry remains continuous independent of chase speed")
 			if tick < duration - 1:
 				check_eq(sim.boss.state, BossState.State.INTRO)
 		check_eq(sim.boss.state, BossState.State.ACTIVE)
 		check_near(sim.boss.x, Tile.SIZE, 0.001)
+		check(entry_steps[0] < entry_steps[floori(duration * 0.5)] * 0.1, "entrance accelerates gently")
+		check(entry_steps[-1] < entry_steps[floori(duration * 0.5)] * 0.1, "entrance settles gently before pursuit")
 		sim.step(run)
 		check(sim.player.x > x, "controls resume after the warning")
 		sim.reset()

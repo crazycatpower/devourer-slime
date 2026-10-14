@@ -17,6 +17,9 @@ var h: float = HEIGHT
 ## Horizontal facing: 1 (right) or -1 (left).
 var facing: int = 1
 
+var has_sand_core: bool = false
+var has_furnace_charge: bool = false
+var eating_charge: RefCounted = null
 var has_block: bool = false
 var carried_block_type: int = Tile.AIR
 ## How many times the carried block has been swallowed (1 or 2).
@@ -54,6 +57,49 @@ var scale_x: float = 1.0
 var scale_y: float = 1.0
 
 
+## Abilities are derived from the carried material, so spitting/reset cannot
+## leave stale powers behind. Worn blocks share their pristine ability.
+func ability_type() -> int:
+	if not has_block:
+		return Tile.AIR
+	if Tile.is_bouncy(carried_block_type):
+		return Tile.BOUNCY
+	if carried_block_type in [Tile.DIRT, Tile.DIRT_EATEN_1, Tile.DIRT_EATEN_2]:
+		return Tile.DIRT
+	return carried_block_type
+
+
+static func material_color(type: int) -> Color:
+	if Tile.is_bouncy(type):
+		return Palette.PINK_500
+	match type:
+		Tile.DIRT, Tile.DIRT_EATEN_1, Tile.DIRT_EATEN_2: return Palette.AMBER_600
+		Tile.SAND: return Color("e8c780")
+		Tile.ICE: return Color("9cdeed")
+		Tile.TNT: return Palette.RED_500
+		Tile.GLASS: return Palette.CYAN_400
+		Tile.STEEL: return Palette.SLATE_400
+	return Palette.GREEN_500
+
+
+func ability_color() -> Color:
+	return material_color(ability_type())
+
+
+func ability_label() -> String:
+	if has_sand_core:
+		return "沙核搬運 · 帶回左側入口"
+	if has_furnace_charge:
+		return "已拆彈 · 吐回 TNT 熔爐"
+	match ability_type():
+		Tile.DIRT: return "泥土 · 重量"
+		Tile.BOUNCY: return "彈力 · 碰撞反彈"
+		Tile.SAND: return "沙子 · 快速下落"
+		Tile.ICE: return "冰 · 低摩擦滑行"
+		Tile.TNT: return "TNT · 劇烈撞擊引爆"
+	return ""
+
+
 func center_x() -> float:
 	return x + w / 2.0
 
@@ -79,5 +125,6 @@ func set_eating_target(r: int, c: int, is_boss_cell: bool) -> void:
 
 
 func clear_eating() -> void:
+	eating_charge = null
 	eating_progress = 0.0
 	has_eating_target = false

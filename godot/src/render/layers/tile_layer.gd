@@ -65,7 +65,7 @@ func _sync_chunks() -> void:
 		queue_redraw()
 
 	var hidden: Vector2i = _eaten_cell()
-	var level_hash: int = level.content_hash()
+	var level_hash: int = hash([level.content_hash(), view.sim.tile_motions.keys()])
 	if not repaint_all and level_hash == _level_hash and hidden == _hidden:
 		return
 	_level_hash = level_hash
@@ -103,6 +103,10 @@ func _chunk_content(level: LevelGrid, chunk: Chunk) -> int:
 		chunk.first_row - 1, chunk.first_col - 1,
 		chunk.first_row + CHUNK + 1, chunk.first_col + CHUNK + 1
 	)
+	if not _editing:
+		for cell: Vector2i in view.sim.tile_motions:
+			if _in_chunk(chunk, cell):
+				content = hash([content, cell])
 	if _in_chunk(chunk, _hidden):
 		content = hash([content, _hidden])
 	return content
@@ -132,7 +136,7 @@ func paint_chunk(chunk: Chunk) -> void:
 	for r: int in range(chunk.first_row, mini(chunk.first_row + CHUNK, level.rows)):
 		for c: int in range(chunk.first_col, mini(chunk.first_col + CHUNK, level.cols)):
 			var t: int = level.get_cell(r, c)
-			if t == Tile.AIR or Vector2i(c, r) == _hidden:
+			if t == Tile.AIR or Vector2i(c, r) == _hidden or (not _editing and view.sim.tile_motions.has(Vector2i(c, r))):
 				continue
 			var x: float = float(c) * Tile.SIZE
 			var y: float = float(r) * Tile.SIZE
@@ -154,7 +158,7 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	for r: int in range(first_row, last_row + 1):
 		for c: int in range(first_col, last_col + 1):
 			var t: int = level.get_cell(r, c)
-			if TilePainter.is_animated(t) and Vector2i(c, r) != _hidden:
+			if TilePainter.is_animated(t) and Vector2i(c, r) != _hidden and not sim.tile_motions.has(Vector2i(c, r)):
 				TilePainter.draw_live(p, t, float(c) * Tile.SIZE, float(r) * Tile.SIZE, view.time_ms)
 	if _hidden != NO_CELL and level.in_bounds(_hidden.y, _hidden.x):
 		_paint_eaten(p, sim, level.get_cell(_hidden.y, _hidden.x))
@@ -166,8 +170,8 @@ func _paint_eaten(p: Painter, sim: GameSim, t: int) -> void:
 		return
 	var player: PlayerState = sim.player
 	var progress: float = clampf(player.eating_progress, 0.0, 1.0)
-	var center: Vector2 = (Vector2(_hidden) + Vector2(0.5, 0.5)) * Tile.SIZE
-	var body: Vector2 = view.tween_position(player.prev_x, player.prev_y, player.x, player.y) + Vector2(player.w, player.h) * 0.5
+	var center: Vector2 = view.tile_position(_hidden) + Vector2.ONE * Tile.SIZE * 0.5
+	var body: Vector2 = view.player_position() + Vector2(player.w, player.h) * 0.5
 	var pull: float = progress * progress * (3.0 - 2.0 * progress)
 	var visual: Vector2 = center.lerp(body, pull)
 	p.push()

@@ -39,6 +39,7 @@ class LandingDust:
 
 var _motion: SlimeMotion = SlimeMotion.new()
 var _last_sim: GameSim
+var _last_player: PlayerState
 var _last_tick: int = -1
 var _look: Vector2 = Vector2.ZERO
 var _was_grounded: bool = false
@@ -51,7 +52,7 @@ var _current_tint_strength: float = 0.0
 func _process(delta: float) -> void:
 	if view == null or view.sim == null:
 		return
-	if view.sim != _last_sim or view.sim.tick_count < _last_tick:
+	if view.sim != _last_sim or view.sim.player != _last_player or view.sim.tick_count < _last_tick:
 		_motion.reset()
 		_look = Vector2.ZERO
 		_dust_particles.clear()
@@ -60,7 +61,16 @@ func _process(delta: float) -> void:
 		_current_tint_strength = 0.0
 		_current_tint_color = Palette.GREEN_500
 	_last_sim = view.sim
+	_last_player = view.sim.player
 	_last_tick = view.sim.tick_count
+	if view.rewinding:
+		_motion.reset()
+		_motion.body_scale = Vector2(view.sim.player.scale_x, view.sim.player.scale_y)
+		_look = Vector2(float(view.sim.player.facing) * 0.45, 0.0)
+		_current_tint_color = view.sim.player.ability_color()
+		_current_tint_strength = 1.0 if view.sim.player.has_block else 0.0
+		_dust_particles.clear()
+		return
 	var dt: float = clampf(delta, 0.0, 0.1)
 
 	var active_dust: Array[LandingDust] = []
@@ -83,27 +93,13 @@ func _process(delta: float) -> void:
 	var target_strength: float = 0.0
 	if player.has_block:
 		target_strength = 1.0
-		if Tile.is_bouncy(player.carried_block_type):
-			target_color = Palette.PINK_500
-		elif player.carried_block_type == Tile.GLASS:
-			target_color = Palette.CYAN_400
-		elif player.carried_block_type == Tile.STEEL:
-			target_color = Palette.SLATE_400
-		else:
-			target_color = Palette.AMBER_500
+		target_color = player.ability_color()
 	elif player.has_eating_target and player.eating_progress > 0.0:
 		var tr: int = player.eating_target_r
 		var tc: int = player.eating_target_c
 		var block_t: int = view.sim.boss.cell(tr, tc) if player.eating_target_is_boss_cell else view.sim.level.get_cell(tr, tc)
 		target_strength = player.eating_progress * 0.4
-		if Tile.is_bouncy(block_t):
-			target_color = Palette.PINK_500
-		elif block_t == Tile.GLASS:
-			target_color = Palette.CYAN_400
-		elif block_t == Tile.STEEL:
-			target_color = Palette.SLATE_400
-		else:
-			target_color = Palette.AMBER_500
+		target_color = PlayerState.material_color(block_t)
 
 	if target_strength > 0.0:
 		_current_tint_color = _current_tint_color.lerp(target_color, clampf(dt * 14.0, 0.0, 1.0))
@@ -129,8 +125,9 @@ func _process(delta: float) -> void:
 
 
 func _spawn_landing_dust(player: PlayerState, fall_speed: float) -> void:
-	var ground_y: float = player.y + player.h
-	var center_x: float = player.x + player.w * 0.5
+	var position: Vector2 = view.player_position()
+	var ground_y: float = position.y + player.h
+	var center_x: float = position.x + player.w * 0.5
 	var count: int = 4 if fall_speed < 8.0 else 6
 	for i: int in count:
 		var d: LandingDust = LandingDust.new()
@@ -141,19 +138,16 @@ func _spawn_landing_dust(player: PlayerState, fall_speed: float) -> void:
 		d.size = randf_range(2.0, 3.5)
 		if not player.has_block:
 			d.color = Color(Palette.SLATE_400, 0.7)
-		elif Tile.is_bouncy(player.carried_block_type):
-			d.color = Color(Palette.PINK_400, 0.75)
-		elif player.carried_block_type == Tile.GLASS:
-			d.color = Color(Palette.CYAN_400, 0.75)
 		else:
-			d.color = Color(Palette.AMBER_400, 0.75)
+			d.color = Color(player.ability_color(), 0.75)
 		d.max_age = 0.22
 		_dust_particles.append(d)
 
 
 func _spawn_jump_dust(player: PlayerState) -> void:
-	var ground_y: float = player.y + player.h
-	var center_x: float = player.x + player.w * 0.5
+	var position: Vector2 = view.player_position()
+	var ground_y: float = position.y + player.h
+	var center_x: float = position.x + player.w * 0.5
 	for side: float in [-1.0, 1.0]:
 		var d: LandingDust = LandingDust.new()
 		d.pos = Vector2(center_x + side * (player.w * 0.25), ground_y)
@@ -161,10 +155,8 @@ func _spawn_jump_dust(player: PlayerState) -> void:
 		d.size = 2.5
 		if not player.has_block:
 			d.color = Color(Palette.SLATE_400, 0.6)
-		elif Tile.is_bouncy(player.carried_block_type):
-			d.color = Color(Palette.PINK_400, 0.65)
 		else:
-			d.color = Color(Palette.AMBER_400, 0.65)
+			d.color = Color(player.ability_color(), 0.65)
 		d.max_age = 0.16
 		_dust_particles.append(d)
 
@@ -185,7 +177,7 @@ func _paint(p: Painter, sim: GameSim) -> void:
 	var player: PlayerState = sim.player
 	if player.dead:
 		return
-	var pos: Vector2 = view.tween_position(player.prev_x, player.prev_y, player.x, player.y)
+	var pos: Vector2 = view.player_position()
 	var w: float = player.w
 	var h: float = player.h
 	var exit_scale: float = 1.0
@@ -255,8 +247,8 @@ func _paint_bullet_time_gauge(p: Painter, center_x: float, y: float) -> void:
 	var left: float = center_x - GAUGE_WIDTH / 2.0
 	var energy: float = clampf(view.bullet_time_energy, 0.0, 1.0)
 	var color: Color = Palette.SKY_400 if energy > GAUGE_LOW else Palette.RED_400
-	p.fill_rect(left - 1.0, y - 1.0, GAUGE_WIDTH + 2.0, GAUGE_HEIGHT + 2.0, Color(Palette.SLATE_900, 0.8))
-	p.fill_rect(left, y, GAUGE_WIDTH * energy, GAUGE_HEIGHT, color)
+	p.fill_round_rect(left - 1.5, y - 1.5, GAUGE_WIDTH + 3.0, GAUGE_HEIGHT + 3.0, 3.5, Color(Palette.SLATE_900, 0.8))
+	p.fill_round_rect(left, y, GAUGE_WIDTH * energy, GAUGE_HEIGHT, 2.0, color)
 
 
 ## The swallowed block shows through the body, darker the more it is worn.

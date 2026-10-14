@@ -25,13 +25,41 @@ const TROPHY_COL: int = 24
 
 ## Ground bounces a leap makes; grows as the boss loses durability.
 static func bounces_for(durability: int) -> int:
-	return 3 + 2 * (BossState.MAX_DURABILITY - durability)
+	return 3 + 2 * phase_for(durability)
+
+
+static func phase_for(durability: int) -> int:
+	return clampi(BossState.MAX_DURABILITY - durability, 0, 2)
+
+
+static func rest_ticks_for(durability: int) -> int:
+	return REST_TICKS - 30 * phase_for(durability)
+
+
+static func charge_ticks_for(durability: int) -> int:
+	return CHARGE_TICKS - 40 * phase_for(durability)
+
+
+static func leap_speed_for(durability: int) -> float:
+	return LEAP_SPEED + 2.0 * phase_for(durability)
+
+
+static func restitution_for(durability: int) -> float:
+	return BOUNCE_RESTITUTION + 0.025 * phase_for(durability)
+
+
+static func horizontal_limit_for(durability: int) -> float:
+	return MAX_HORIZONTAL_SPEED + 3.0 * phase_for(durability)
+
+
+static func vertical_limit_for(durability: int) -> float:
+	return MAX_VERTICAL_SPEED + 2.0 * phase_for(durability)
 
 
 ## Horizontal launch speed for a leap toward a player [param dx] away.
-static func leap_vx(dx: float) -> float:
+static func leap_vx(dx: float, durability: int = BossState.MAX_DURABILITY) -> float:
 	var direction: float = 1.0 if dx >= 0.0 else -1.0
-	return direction * maxf(2.5, minf(14.0, absf(dx * 0.035)))
+	return direction * maxf(2.5, minf(14.0, absf(dx * 0.035))) * (1.0 + 0.18 * phase_for(durability))
 
 
 static func update(sim: GameSim) -> void:
@@ -59,16 +87,18 @@ static func update(sim: GameSim) -> void:
 				boss.cooldown -= 1
 				if boss.cooldown <= 0:
 					boss.state = BossState.State.CHARGING
-					boss.charge_timer = CHARGE_TICKS
-					boss.max_charge_timer = CHARGE_TICKS
+					boss.charge_timer = charge_ticks_for(boss.durability)
+					boss.max_charge_timer = boss.charge_timer
 					boss.vx = 0.0
 		BossState.State.CHARGING:
 			_update_charging(sim)
 		BossState.State.JUMPING:
 			_update_leaping(sim)
 
-	boss.vx = clampf(boss.vx, -MAX_HORIZONTAL_SPEED, MAX_HORIZONTAL_SPEED)
-	boss.vy = clampf(boss.vy, -MAX_VERTICAL_SPEED, MAX_VERTICAL_SPEED)
+	var horizontal_limit: float = horizontal_limit_for(boss.durability)
+	var vertical_limit: float = vertical_limit_for(boss.durability)
+	boss.vx = clampf(boss.vx, -horizontal_limit, horizontal_limit)
+	boss.vy = clampf(boss.vy, -vertical_limit, vertical_limit)
 	if boss.y > sim.level.pixel_height():
 		_on_fell_out_of_map(sim)
 
@@ -94,7 +124,8 @@ static func _update_falling(sim: GameSim) -> void:
 		boss.vy = 0.0
 		boss.state = BossState.State.ACTIVE
 		boss.grounded = true
-		boss.cooldown = REST_TICKS
+		boss.cooldown = rest_ticks_for(boss.durability)
+		boss.max_cooldown = boss.cooldown
 		boss.scale_y = 0.5
 		boss.scale_x = 1.6
 		sim.camera.shake = 24.0
@@ -121,8 +152,8 @@ static func _update_charging(sim: GameSim) -> void:
 	boss.charge_timer -= 1
 	if boss.charge_timer <= 0:
 		boss.state = BossState.State.JUMPING
-		boss.vy = -LEAP_SPEED
-		boss.vx = leap_vx(BossSystem.player_dx(sim))
+		boss.vy = -leap_speed_for(boss.durability)
+		boss.vx = leap_vx(BossSystem.player_dx(sim), boss.durability)
 		boss.grounded = false
 		boss.scale_y = 1.9
 		boss.scale_x = 0.4
@@ -135,6 +166,7 @@ static func _update_charging(sim: GameSim) -> void:
 static func _update_leaping(sim: GameSim) -> void:
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
+	var restitution: float = restitution_for(boss.durability)
 	boss.vy += GRAVITY_LEAPING
 	boss.x += boss.vx
 
@@ -156,7 +188,7 @@ static func _update_leaping(sim: GameSim) -> void:
 			sim.spawn_particles(boss.x, boss.center_y(), BODY_COLOR, 15, 4.0)
 		for r: int in hit_rows:
 			sim.damage_cell_at(r, target_col)
-		boss.vx = -boss.vx * BOUNCE_RESTITUTION
+		boss.vx = -boss.vx * restitution
 		sim.add_shake(18.0)
 		sim.play(Sfx.Id.BOUNCE)
 
@@ -166,20 +198,20 @@ static func _update_leaping(sim: GameSim) -> void:
 	var right_limit: float = level.pixel_width() - Tile.SIZE
 	if boss.x < Tile.SIZE:
 		boss.x = Tile.SIZE
-		boss.vx = -boss.vx * BOUNCE_RESTITUTION
+		boss.vx = -boss.vx * restitution
 		sim.add_shake(15.0)
 		sim.play(Sfx.Id.BOUNCE)
 		sim.spawn_particles(boss.x, boss.center_y(), BODY_COLOR, 15, 4.0)
 	elif boss.x + boss.w > right_limit:
 		boss.x = right_limit - boss.w
-		boss.vx = -boss.vx * BOUNCE_RESTITUTION
+		boss.vx = -boss.vx * restitution
 		sim.add_shake(15.0)
 		sim.play(Sfx.Id.BOUNCE)
 		sim.spawn_particles(boss.x + boss.w, boss.center_y(), BODY_COLOR, 15, 4.0)
 
 	if boss.y < Tile.SIZE:
 		boss.y = Tile.SIZE
-		boss.vy = -boss.vy * BOUNCE_RESTITUTION
+		boss.vy = -boss.vy * restitution
 		sim.add_shake(15.0)
 		sim.play(Sfx.Id.BOUNCE)
 		sim.spawn_particles(boss.center_x(), boss.y, BODY_COLOR, 15, 4.0)
@@ -190,11 +222,11 @@ static func _update_leaping(sim: GameSim) -> void:
 	boss.y = float(r_floor) * Tile.SIZE - boss.h
 	if boss.bounces_remaining > 0:
 		# Only touching the ground uses up a bounce.
-		boss.vy = -LEAP_SPEED
+		boss.vy = -leap_speed_for(boss.durability)
 		if absf(boss.vx) < 5.0:
-			boss.vx = (1.0 if boss.vx >= 0.0 else -1.0) * 6.0
+			boss.vx = (1.0 if boss.vx >= 0.0 else -1.0) * (6.0 + phase_for(boss.durability))
 		else:
-			boss.vx = boss.vx * BOUNCE_RESTITUTION
+			boss.vx = boss.vx * restitution
 		boss.bounces_remaining -= 1
 		sim.add_shake(22.0)
 		sim.play(Sfx.Id.BOUNCE)
@@ -205,7 +237,8 @@ static func _update_leaping(sim: GameSim) -> void:
 		boss.vx = 0.0
 		boss.grounded = true
 		boss.state = BossState.State.ACTIVE
-		boss.cooldown = REST_TICKS
+		boss.cooldown = rest_ticks_for(boss.durability)
+		boss.max_cooldown = boss.cooldown
 		boss.scale_y = 0.5
 		boss.scale_x = 1.6
 		sim.camera.shake = 26.0
@@ -228,7 +261,10 @@ static func _on_fell_out_of_map(sim: GameSim) -> void:
 		boss.vx = 0.0
 		boss.vy = 0.0
 		boss.state = BossState.State.INTRO
-		boss.intro_timer = INTRO_TICKS
+		boss.intro_timer = INTRO_TICKS - 30 * phase_for(boss.durability)
+		boss.intro_duration = boss.intro_timer
+		boss.scale_x = 1.0
+		boss.scale_y = 1.0
 		# The fight is on: the player keeps control while the boss floats back
 		# down, instead of being dropped into whatever hole they are over.
 		boss.intro_freezes_player = false

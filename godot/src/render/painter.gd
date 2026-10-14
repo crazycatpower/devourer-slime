@@ -41,7 +41,7 @@ func _init(canvas_item: CanvasItem, p_pixel_scale: float = 1.0) -> void:
 
 ## Starts collecting the shapes drawn from now on instead of drawing them, with
 ## the current transform as their origin. Lines, arcs and filled shapes are
-## supported; text and dashed or outlined rectangles are not.
+## supported, including rounded outlines; text and dashed rectangles are not.
 func begin_recording() -> void:
 	_recording = true
 	_record_base = xf.affine_inverse()
@@ -156,6 +156,9 @@ func stroke_round_rect(
 		return
 	var points: PackedVector2Array = _round_rect_points(x, y, w, h, radius)
 	points.append(points[0])
+	if _recording:
+		polyline(points, color, width)
+		return
 	ci.draw_polyline(points, color, width, true)
 
 
@@ -184,6 +187,10 @@ func dashed_polyline(points: PackedVector2Array, color: Color, width: float, das
 
 
 func polygon(points: PackedVector2Array, color: Color) -> void:
+	# While recording, the outline has to be convex: it is filled as a fan.
+	if _recording:
+		_fill_convex(points, color)
+		return
 	if points.size() >= 3:
 		ci.draw_colored_polygon(points, color)
 

@@ -15,7 +15,7 @@ func test_bombs_start_inside_walls_even_when_shields_wind_up_outside() -> void:
 			check(bomb.x + BossGlassSlime.BOMB_RADIUS <= sim.level.pixel_width() - Tile.SIZE, "flight cannot leave the right wall")
 
 
-func test_fast_bomb_cannot_cross_an_interior_wall() -> void:
+func test_fast_thrown_glass_stops_at_interior_steel_without_destroying_it() -> void:
 	var sim: GameSim = _loaded()
 	# Reuse a steel cell in a test fixture to check swept collision.
 	sim.level.set_cell(5, 10, Tile.STEEL)
@@ -24,12 +24,13 @@ func test_fast_bomb_cannot_cross_an_interior_wall() -> void:
 		bomb.x = 330.0 if direction > 0.0 else 510.0
 		bomb.y = 220.0
 		bomb.vx = direction * 200.0
-		BossGlassSlime._fly_bomb(sim.level, bomb)
+		check(BossGlassSlime._fly_bomb(sim.level, bomb), "interior steel stops thrown glass")
 		if direction > 0.0:
-			check(bomb.x + BossGlassSlime.BOMB_RADIUS <= 400.0, "cannot tunnel right through steel")
+			check(bomb.x + BossGlassSlime.BOMB_RADIUS <= 400.0, "stops before steel to the right")
 		else:
-			check(bomb.x - BossGlassSlime.BOMB_RADIUS >= 440.0, "cannot tunnel left through steel")
-		check_near(bomb.vx, 0.0, 0.0, "wall stops horizontal motion")
+			check(bomb.x - BossGlassSlime.BOMB_RADIUS >= 440.0, "stops before steel to the left")
+		check_near(bomb.vx, 0.0, 0.0, "impact stops horizontal velocity")
+		check_eq(sim.level.get_cell(5, 10), Tile.STEEL)
 
 
 func test_arena_varies_with_seed_and_retry() -> void:
@@ -221,7 +222,7 @@ func test_bomb_aim_is_scattered_but_reproducible() -> void:
 	check(rightmost - leftmost > 100.0, "throws no longer pinpoint the player")
 
 
-func test_bomb_wall_contact_explodes_without_waiting() -> void:
+func test_thrown_glass_wall_contact_shatters_without_waiting() -> void:
 	var sim: GameSim = _fighting()
 	var bomb: GlassBomb = GlassBomb.new()
 	bomb.x = Tile.SIZE + BossGlassSlime.BOMB_RADIUS
@@ -229,8 +230,8 @@ func test_bomb_wall_contact_explodes_without_waiting() -> void:
 	bomb.vx = -100.0
 	sim.boss.bombs.append(bomb)
 	BossGlassSlime._update_bombs(sim)
-	check(sim.boss.bombs.is_empty(), "wall impact explodes in the same tick")
-	check(not sim.player.dead, "a distant explosion does not kill")
+	check(sim.boss.bombs.is_empty(), "wall impact shatters in the same tick")
+	check(not sim.player.dead, "distant impact does not kill")
 
 
 func test_repair_restores_only_phase_quota_after_warning() -> void:
@@ -610,7 +611,7 @@ func test_bombs_stop_when_the_shields_run_out() -> void:
 	check_eq(boss.current_move, BossGlassSlime.Move.SLAM as int)
 
 
-func test_bombs_burst_in_the_same_tick_as_impact() -> void:
+func test_thrown_glass_shatters_in_the_same_tick_as_impact() -> void:
 	var sim: GameSim = _fighting()
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
@@ -629,8 +630,7 @@ func test_bombs_burst_in_the_same_tick_as_impact() -> void:
 		_update_bombs_only(sim)
 		if boss.bombs.is_empty():
 			break
-	check(bomb.landed, "it comes to rest")
-	var at: Vector2 = Vector2(bomb.x, bomb.y)
+	check(not bomb.hit_cells.is_empty(), "throw stops at terrain contact")
 	check(boss.bombs.is_empty(), "removed on the landing tick, with no fuse delay")
 	check(not sim.player.dead, "a player who walked away lives")
 	var after: Dictionary[int, int] = _tile_counts(level)
@@ -638,13 +638,9 @@ func test_bombs_burst_in_the_same_tick_as_impact() -> void:
 	var glass_after: int = after.get(Tile.GLASS, 0)
 	var dirt_before: int = before.get(Tile.DIRT, 0)
 	var dirt_after: int = after.get(Tile.DIRT, 0)
-	check(glass_after <= glass_before - 4, "a hole is blown in the glass (%d cells)" % (glass_before - glass_after))
+	check(glass_before - glass_after <= 2, "only leading edge glass can break")
 	check_eq(dirt_after, dirt_before, "the dirt is left standing")
-	for row: int in level.rows:
-		for col: int in level.cols:
-			var centre: Vector2 = (Vector2(col, row) + Vector2(0.5, 0.5)) * Tile.SIZE
-			if centre.distance_to(at) <= BossGlassSlime.BLAST_GLASS_RADIUS:
-				check(level.get_cell(row, col) != Tile.GLASS, "no glass survives inside the blast")
+
 
 
 func test_bomb_kills_a_player_who_stays_beside_it() -> void:
@@ -656,8 +652,8 @@ func test_bomb_kills_a_player_who_stays_beside_it() -> void:
 	bomb.vy = 2.0
 	sim.boss.bombs.append(bomb)
 	_update_bombs_only(sim)
-	check(sim.player.dead, "the burst is fatal up close")
-	check(sim.boss.bombs.is_empty(), "player contact explodes immediately")
+	check(sim.player.dead, "direct glass contact is fatal")
+	check(sim.boss.bombs.is_empty(), "player contact removes thrown glass immediately")
 
 
 func test_camera_looks_above_the_player_during_the_fight() -> void:
@@ -850,4 +846,3 @@ func _tile_counts(level: LevelGrid) -> Dictionary[int, int]:
 			var seen: int = counts.get(tile, 0)
 			counts[tile] = seen + 1
 	return counts
-

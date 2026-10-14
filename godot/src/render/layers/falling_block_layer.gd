@@ -19,11 +19,16 @@ func _paint(p: Painter, sim: GameSim) -> void:
 			continue
 
 		var pos: Vector2 = view.tween_position(block.prev_x, block.prev_y, block.x, block.y)
+		if block.fixed_landing_type:
+			TilePainter.draw(p, block.type, pos.x - HALF, pos.y - HALF, view.time_ms)
+			if not block.lethal:
+				p.stroke_circle(pos.x, pos.y, 25.0, Color(Palette.LIME_400, 0.6), 2.0)
+			else:
+				p.fill_rect(pos.x - HALF, pos.y + HALF, Tile.SIZE, maxf(0.0, level_height - pos.y), Color(Palette.RED_500, 0.08))
+			continue
 		# A faint shaft below shows where it will land.
 		p.fill_rect(pos.x - HALF, pos.y + HALF, Tile.SIZE, 600.0, Color(Palette.RED_500, 0.12))
-		p.fill_rect(pos.x - HALF, pos.y - HALF, Tile.SIZE, Tile.SIZE, Palette.BLACK)
-		p.stroke_rect(
-			pos.x - HALF + 1.5, pos.y - HALF + 1.5, Tile.SIZE - 3.0, Tile.SIZE - 3.0,
-			Palette.RED_500, 3.0
-		)
+		# Built like every other block: an even rounded border around a flat face.
+		p.fill_round_rect(pos.x - HALF, pos.y - HALF, Tile.SIZE, Tile.SIZE, 9.0, Palette.RED_500)
+		p.fill_round_rect(pos.x - HALF + 4.0, pos.y - HALF + 4.0, Tile.SIZE - 8.0, Tile.SIZE - 8.0, 5.0, Palette.SLATE_950)
 		p.icon_skull(pos.x, pos.y, 20.0, Palette.RED_500)

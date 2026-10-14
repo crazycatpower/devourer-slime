@@ -34,54 +34,59 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 80
-theme_override_constants/margin_top = 24
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 80
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
+[node name="Scroll" type="ScrollContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 11
+horizontal_scroll_mode = 0
 
-[node name="Header" type="HBoxContainer" parent="Margin/VBox"]
+[node name="VBox" type="VBoxContainer" parent="Margin/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="Margin/Scroll/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="Logo" type="Control" parent="Margin/VBox/Header"]
+[node name="Logo" type="Control" parent="Margin/Scroll/VBox/Header"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(88, 88)
 layout_mode = 2
 script = ExtResource("3_logo")
 
-[node name="Titles" type="VBoxContainer" parent="Margin/VBox/Header"]
+[node name="Titles" type="VBoxContainer" parent="Margin/Scroll/VBox/Header"]
 layout_mode = 2
 theme_override_constants/separation = -4
 alignment = 1
 
-[node name="Title" type="Label" parent="Margin/VBox/Header/Titles"]
+[node name="Title" type="Label" parent="Margin/Scroll/VBox/Header/Titles"]
 layout_mode = 2
 theme_type_variation = &"TitleLabel"
 text = "史萊姆方塊吞噬者"
 
-[node name="Subtitle" type="Label" parent="Margin/VBox/Header/Titles"]
+[node name="Subtitle" type="Label" parent="Margin/Scroll/VBox/Header/Titles"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CaptionLabel"
 text = "SLIME BLOCK EATER  //  BUILD & PLAY"
 
-[node name="Spacer" type="Control" parent="Margin/VBox/Header"]
+[node name="Spacer" type="Control" parent="Margin/Scroll/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="VolumeBox" type="PanelContainer" parent="Margin/VBox/Header"]
+[node name="VolumeBox" type="PanelContainer" parent="Margin/Scroll/VBox/Header"]
 layout_mode = 2
 size_flags_vertical = 4
 theme_type_variation = &"InsetPanel"
 
-[node name="HBox" type="HBoxContainer" parent="Margin/VBox/Header/VolumeBox"]
+[node name="HBox" type="HBoxContainer" parent="Margin/Scroll/VBox/Header/VolumeBox"]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="MuteButton" type="Button" parent="Margin/VBox/Header/VolumeBox/HBox"]
+[node name="MuteButton" type="Button" parent="Margin/Scroll/VBox/Header/VolumeBox/HBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(104, 0)
 layout_mode = 2
@@ -89,7 +94,7 @@ theme_type_variation = &"ChipButton"
 toggle_mode = true
 text = "音量"
 
-[node name="VolumeSlider" type="HSlider" parent="Margin/VBox/Header/VolumeBox/HBox"]
+[node name="VolumeSlider" type="HSlider" parent="Margin/Scroll/VBox/Header/VolumeBox/HBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
@@ -98,7 +103,7 @@ max_value = 100.0
 step = 1.0
 value = 80.0
 
-[node name="VolumeValue" type="Label" parent="Margin/VBox/Header/VolumeBox/HBox"]
+[node name="VolumeValue" type="Label" parent="Margin/Scroll/VBox/Header/VolumeBox/HBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(72, 0)
 layout_mode = 2
@@ -106,51 +111,51 @@ theme_type_variation = &"CaptionLabel"
 text = "80%"
 horizontal_alignment = 2
 
-[node name="SettingsButton" type="Button" parent="Margin/VBox/Header"]
+[node name="SettingsButton" type="Button" parent="Margin/Scroll/VBox/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 text = "設定"
 
-[node name="QuitButton" type="Button" parent="Margin/VBox/Header"]
+[node name="QuitButton" type="Button" parent="Margin/Scroll/VBox/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 text = "離開"
 
-[node name="HeaderLine" type="HSeparator" parent="Margin/VBox"]
+[node name="HeaderLine" type="HSeparator" parent="Margin/Scroll/VBox"]
 layout_mode = 2
 
-[node name="ModeTabs" type="HBoxContainer" parent="Margin/VBox"]
+[node name="ModeTabs" type="HBoxContainer" parent="Margin/Scroll/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="OfficialTab" type="Button" parent="Margin/VBox/ModeTabs"]
+[node name="OfficialTab" type="Button" parent="Margin/Scroll/VBox/ModeTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(260, 54)
+custom_minimum_size = Vector2(260, 46)
 layout_mode = 2
 theme_type_variation = &"ChipButton"
 toggle_mode = true
 text = "關卡 PLAY"
 
-[node name="CustomTab" type="Button" parent="Margin/VBox/ModeTabs"]
+[node name="CustomTab" type="Button" parent="Margin/Scroll/VBox/ModeTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(260, 54)
+custom_minimum_size = Vector2(260, 46)
 layout_mode = 2
 theme_type_variation = &"ChipButton"
 toggle_mode = true
 text = "編輯 BUILD"
 
-[node name="WorldTabs" type="HBoxContainer" parent="Margin/VBox"]
+[node name="WorldTabs" type="HBoxContainer" parent="Margin/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="SectionHeader" type="HBoxContainer" parent="Margin/VBox"]
+[node name="SectionHeader" type="HBoxContainer" parent="Margin/Scroll/VBox"]
 layout_mode = 2
 
-[node name="SectionTitle" type="Label" parent="Margin/VBox/SectionHeader"]
+[node name="SectionTitle" type="Label" parent="Margin/Scroll/VBox/SectionHeader"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -158,13 +163,13 @@ theme_type_variation = &"HeadingLabel"
 theme_override_font_sizes/font_size = 26
 text = "冒險挑戰關卡 LEVEL SELECT"
 
-[node name="ProgressLabel" type="Label" parent="Margin/VBox/SectionHeader"]
+[node name="ProgressLabel" type="Label" parent="Margin/Scroll/VBox/SectionHeader"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"BadgeLabel"
 text = "已通關 0 / 50"
 
-[node name="Grid" type="GridContainer" parent="Margin/VBox"]
+[node name="Grid" type="GridContainer" parent="Margin/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -172,11 +177,11 @@ theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 14
 columns = 3
 
-[node name="BossCard" parent="Margin/VBox" instance=ExtResource("4_card")]
+[node name="BossCard" parent="Margin/Scroll/VBox" instance=ExtResource("4_card")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="VersionLabel" type="Label" parent="Margin/VBox"]
+[node name="VersionLabel" type="Label" parent="Margin/Scroll/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"CaptionLabel"

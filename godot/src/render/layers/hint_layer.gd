@@ -45,6 +45,12 @@ func _paint_eat_target(p: Painter, sim: GameSim) -> void:
 		return
 	var boss: BossState = sim.boss
 	var aim: PlayerSystem.Aim = PlayerSystem.aim_of(sim, sim.input.mouse_x, sim.input.mouse_y)
+	var charge_target: EatTarget = sim.get_eat_target(player.center_x(), player.center_y(), aim.x, aim.y)
+	if charge_target != null and charge_target.charge != null:
+		var charge: GameSim.TntCharge = charge_target.charge as GameSim.TntCharge
+		p.stroke_circle(charge.center.x, charge.center.y, 27.0, Palette.LIME_400, 3.0)
+		p.text("拆彈 %d%%" % roundi(player.eating_progress * 100.0), charge.center.x, charge.center.y - 42.0, 10.0, Palette.LIME_400, true)
+		return
 
 	var r: int
 	var c: int
@@ -68,8 +74,12 @@ func _paint_eat_target(p: Painter, sim: GameSim) -> void:
 	if not (aim.aiming or player.eating_progress > 0.0 or view.eat_held):
 		return
 
-	var x: float = float(c) * Tile.SIZE
-	var y: float = float(r) * Tile.SIZE
+	# A block being carried along a rail, falling or sliding is drawn between
+	# cells for a moment; the outline goes where the block is seen, not to the
+	# cell it is headed for.
+	var at: Vector2 = view.tile_position(Vector2i(c, r))
+	var x: float = at.x
+	var y: float = at.y
 	if is_boss_cell:
 		# Boss cells move with the boss, so follow its interpolated position.
 		var boss_pos: Vector2 = view.tween_position(boss.prev_x, boss.prev_y, boss.x, boss.y)

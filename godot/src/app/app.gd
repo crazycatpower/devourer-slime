@@ -102,7 +102,7 @@ func edit_slot(slot: int) -> void:
 # --- Flow between screens ------------------------------------------------------------
 
 func _on_official_level_completed(slot: int) -> void:
-	var next_slot: int = WorldCatalog.next_slot(slot)
+	var next_slot: int = LevelStore.next_campaign_slot(slot)
 	if next_slot != 0:
 		play_official(next_slot)
 		_toasts.show_message("挑戰成功！前往下一關")

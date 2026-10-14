@@ -15,8 +15,13 @@ static func paint_body(p: Painter, tint: Color = BODY_COLOR, strength: float = 0
 	var fill: Color = BODY_COLOR.lerp(tint, clampf(strength, 0.0, 1.0))
 	p.fill_round_rect(0.0, 0.0, 40.0, 40.0, 11.0, fill.darkened(0.3))
 	p.fill_round_rect(4.0, 4.0, 32.0, 32.0, 7.0, fill)
+	if strength > 0.05:
+		p.fill_round_rect(8.0, 8.0, 24.0, 24.0, 6.0, Color(tint, 0.22 * strength))
 	# A deeper tone settles at the base of the jelly, the same on both sides.
 	p.fill_round_rect(4.0, 29.0, 32.0, 7.0, 7.0, fill.darkened(0.12), 6)
+	# Top jelly glossy highlight shine
+	p.fill_round_rect(7.0, 6.5, 12.0, 3.5, 1.8, Color(1.0, 1.0, 1.0, 0.3))
+	p.fill_circle(22.5, 8.0, 1.4, Color(1.0, 1.0, 1.0, 0.22))
 
 
 static func paint(p: Painter, motion: SlimeMotion, look: Vector2) -> void:

@@ -19,6 +19,11 @@ var _slot: int = 1
 
 
 func _ready() -> void:
+	# Keep both world rows visible at the standard menu viewport.
+	var panel: StyleBoxFlat = get_theme_stylebox(&"panel").duplicate() as StyleBoxFlat
+	panel.content_margin_top = 6.0
+	panel.content_margin_bottom = 6.0
+	add_theme_stylebox_override(&"panel", panel)
 	_play_button.pressed.connect(func() -> void: play_requested.emit(_slot))
 	_edit_button.pressed.connect(func() -> void: edit_requested.emit(_slot))
 	_test_button.pressed.connect(func() -> void: test_requested.emit(_slot))
@@ -51,6 +56,10 @@ func show_slot(slot: int, custom_tab: bool) -> void:
 		_title.text = "WORLD %d · LEVEL %02d" % [WorldCatalog.display_world(world), index]
 		_title.add_theme_color_override(&"font_color", Palette.SLATE_300)
 
+	if not custom_tab and not has_custom and not LevelLibrary.has_designer_level(slot) and not LevelLibrary.stage_name(slot).is_empty():
+		_title.text = LevelLibrary.stage_name(slot)
+		tooltip_text = LevelLibrary.stage_hint(slot)
+
 	for child: Node in _badges.get_children():
 		child.queue_free()
 	if not has_custom:
@@ -58,6 +67,10 @@ func show_slot(slot: int, custom_tab: bool) -> void:
 			_add_badge("首領尚未製作", Palette.SLATE_500)
 		elif LevelLibrary.is_placeholder(slot):
 			_add_badge("空白關卡", Palette.SLATE_500)
+	if not has_custom and LevelLibrary.is_standard_stage(slot):
+		_add_badge("標準地圖", accent)
+	if has_boss and BossMechanism.is_kind(LevelLibrary.boss_kind_for_slot(slot)):
+		tooltip_text = BossMechanism.name_for(LevelLibrary.boss_kind_for_slot(slot)) + "：" + BossMechanism.hint(LevelLibrary.boss_kind_for_slot(slot))
 	if not custom_tab and Progress.is_cleared(slot):
 		_add_badge("已通關", Palette.EMERALD_400)
 

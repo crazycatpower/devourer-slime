@@ -28,7 +28,7 @@ func _paint_background(p: Painter, sim: GameSim) -> void:
 	var world: int = clampi(GameConstants.world_of_slot(sim.slot) - 1, 0, BackdropTheme.PALETTES.size() - 1)
 	var colors: PackedColorArray = BackdropTheme.PALETTES[world]
 	var visible: Rect2 = Rect2(view.camera_position, view.size / maxf(view.world_scale, 0.001))
-	var depth_pilot: bool = sim.slot in [10, 20, 30, 40, 50] and view.editor == null
+	var depth_pilot: bool = LevelLibrary.is_boss_slot(sim.slot) and view.editor == null
 	if depth_pilot:
 		if world == 0:
 			_draw_depth(p, visible, sim.level.pixel_height() - Tile.SIZE)
@@ -108,6 +108,16 @@ func _draw_boss_hall(p: Painter, visible: Rect2, ground: float, world: int, colo
 				for lock: int in 3:
 					p.fill_rect(x + 72.0, base - 230.0 + float(lock) * 73.0, 42.0, 10.0, body)
 		_machine_details(p, x, base, world, colors)
+		if world >= 5:
+			# Material factory: equipment and conduits are decorative, never terrain.
+			var accent: Color = Color(WorldCatalog.accent(world + 1), 0.24)
+			p.fill_rect(x, base - 20.0, 180.0, 20.0, edge)
+			p.fill_rect(x + 12.0, base - 220.0, 156.0, 200.0, body)
+			p.stroke_round_rect(x + 24.0, base - 205.0, 132.0, 105.0, 6.0, accent, 2.0)
+			for line: int in 4:
+				p.fill_rect(x + 30.0, base - 88.0 + float(line) * 13.0, 115.0, 3.0, dark)
+			TilePainter.draw(p, WorldCatalog.icon_tile(world + 1), x + 70.0, base - 180.0, 0.0)
+			p.line(x + 90.0, base - 100.0, x + 90.0, base - 25.0, accent, 3.0)
 		_draw_support_set(p, x, base, world, colors, variant)
 	p.pop()
 	# Midground utility rack: mounted equipment stays attached during parallax.

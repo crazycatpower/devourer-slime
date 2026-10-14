@@ -16,6 +16,15 @@ enum BossHit {
 	DEFLECTED,
 }
 
+## The horizon is not a landing point. Callers must distinguish it from an
+## actual contact or an airborne fuse expiry when drawing aiming feedback.
+enum PreviewEnd { HORIZON, CONTACT, BOUNDARY, FUSE }
+
+class Trajectory:
+	extends RefCounted
+	var points: PackedVector2Array = PackedVector2Array()
+	var end: PreviewEnd = PreviewEnd.HORIZON
+
 const MAX_STEP: float = 10.0
 const GRAVITY_SCALE: float = 0.15
 const BOUNCE_DAMPING: float = 0.9
@@ -28,8 +37,14 @@ const DEFLECT_POP: float = 1.5
 
 
 static func update(sim: GameSim) -> void:
+	MechanismSystem.update_tnt(sim)
 	for i: int in range(sim.projectiles.size() - 1, -1, -1):
 		var p: SimProjectile = sim.projectiles[i]
+		if p.fuse_ticks > 0 and not p.dead and p.fuse_start_tick != sim.tick_count:
+			p.fuse_ticks -= 1
+			if p.fuse_ticks == 0:
+				p.dead = true
+				MechanismSystem.explode(sim, Vector2(p.x + p.w * 0.5, p.y + p.h * 0.5), true, p.returned_charge)
 		if p.dead or _sweep(sim, p):
 			sim.projectiles.remove_at(i)
 		else:
@@ -47,11 +62,19 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 	var prev_c: int = floori(rx / Tile.SIZE)
 	var prev_r: int = floori(ry / Tile.SIZE)
 
-	for s: int in range(1, steps + 1):
-		var cx: float = rx + (p.vx * float(s) / float(steps))
-		var cy: float = ry + (p.vy * float(s) / float(steps))
+	var bounce_boundaries: bool = not p.is_enemy and p.type != Tile.TNT
+	for fraction: float in _sweep_times(level, Vector2(rx, ry), Vector2(p.vx, p.vy), steps, bounce_boundaries, p.type == Tile.BOUNCY and p.bounce_count < 1):
+		var cx: float = rx + p.vx * fraction
+		var cy: float = ry + p.vy * fraction
 		var c: int = floori(cx / Tile.SIZE)
 		var r: int = floori(cy / Tile.SIZE)
+		if not p.is_enemy and p.type in [Tile.ICE, Tile.SAND] and MechanismSystem.fragile_hits_spikes(level, Rect2(cx - p.w / 2.0, cy - p.h / 2.0, p.w, p.h)):
+			p.x = cx - p.w / 2.0
+			p.y = cy - p.h / 2.0
+			if not preview:
+				sim.spawn_particles(cx, cy, _block_color(p.type), 16, 4.5)
+				sim.play(Sfx.Id.LAND)
+			return true
 
 		if p.is_enemy:
 			if _enemy_step(sim, p, cx, cy, r, c, prev_r, prev_c):
@@ -73,6 +96,10 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 				p.y = cy - p.h / 2.0
 				return true
 			continue
+		if p.type == Tile.TNT and boss_hit != BossHit.NONE:
+			p.dead = true
+			MechanismSystem.arm_tnt(sim, Vector2(cx, cy), p.fuse_ticks if p.fuse_ticks > 0 else MechanismSystem.TNT_FUSE_TICKS, false, p.returned_charge)
+			return true
 		match boss_hit:
 			BossHit.SPENT:
 				return true
@@ -82,6 +109,16 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 		if not level.in_bounds(r, c):
 			return true  # Left the map.
 		var cell_type: int = level.get_cell(r, c)
+		if cell_type == Tile.TNT:
+			p.dead = true
+			MechanismSystem.detonate_cell(sim, Vector2i(c, r))
+			if p.type == Tile.TNT:
+				MechanismSystem.arm_tnt(sim, Vector2(cx, cy), p.fuse_ticks if p.fuse_ticks > 0 else MechanismSystem.TNT_FUSE_TICKS, false, p.returned_charge)
+			return true
+		if p.type == Tile.TNT and (Tile.is_solid(cell_type) or Tile.is_spike(cell_type)):
+			p.dead = true
+			MechanismSystem.arm_tnt(sim, Vector2(cx, cy), p.fuse_ticks if p.fuse_ticks > 0 else MechanismSystem.TNT_FUSE_TICKS, false, p.returned_charge)
+			return true
 
 		if Tile.is_spike(cell_type):
 			var color: Color = _block_color(p.type)
@@ -103,6 +140,10 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 			sim.spawn_particles(cx, cy, Palette.CYAN_500, 20, 5.0)
 			return true
 
+		if cell_type == Tile.ICE and c != prev_c and r == prev_r and absf(p.vx) > absf(p.vy):
+			MechanismSystem.start_slide(sim, Vector2i(c, r), p.vx)
+			return true
+
 		var can_bounce: bool = Tile.is_bouncy(cell_type)
 		if not can_bounce and p.type == Tile.BOUNCY and p.bounce_count < 1:
 			# A bouncy block rebounds once off anything.
@@ -110,18 +151,23 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 			p.bounce_count += 1
 
 		if can_bounce:
-			var bounce_x: bool = c != prev_c
-			var bounce_y: bool = r != prev_r
-			if not bounce_x and not bounce_y:
-				bounce_x = true
-				bounce_y = true
-			if bounce_x:
+			var contact: Vector3 = _bounce_contact(level, Vector2(rx, ry), Vector2(p.vx, p.vy), c, r)
+			var hit: Vector2 = Vector2(rx, ry) + Vector2(p.vx, p.vy) * contact.z
+			# A moving block may cover a shot between ticks. Separate it onto
+			# the chosen face before reflecting, avoiding repeated inside hits.
+			if contact.z == 0.0:
+				if contact.x != 0.0:
+					hit.x = float(c if contact.x < 0.0 else c + 1) * Tile.SIZE
+				if contact.y != 0.0:
+					hit.y = float(r if contact.y < 0.0 else r + 1) * Tile.SIZE
+			if contact.x != 0.0:
 				p.vx = -p.vx * BOUNCE_DAMPING
-			if bounce_y:
+			if contact.y != 0.0:
 				p.vy = -p.vy * BOUNCE_DAMPING
-			# Restart from the last free cell so the hit cannot trigger twice.
-			p.x = float(prev_c) * Tile.SIZE
-			p.y = float(prev_r) * Tile.SIZE
+			# update() adds the new velocity once; compensate for time already
+			# spent reaching the face, preserving the continuous bounce position.
+			p.x = hit.x - p.w / 2.0 - p.vx * contact.z + contact.x * Collision.SKIN
+			p.y = hit.y - p.h / 2.0 - p.vy * contact.z + contact.y * Collision.SKIN
 			sim.spawn_particles(cx, cy, Palette.PINK_500, 12, 3.0)
 			sim.add_shake(2.0)
 			sim.play(Sfx.Id.BOUNCE)
@@ -132,12 +178,68 @@ static func _sweep(sim: GameSim, p: SimProjectile, preview: bool = false) -> boo
 	return false
 
 
+## Swept point entry into the tile. Crossing two grid lines in one sample does
+## not imply hitting both faces: the later crossing is the actual entry face.
+## X/Y are outward normal components, Z is the fraction of this tick at impact.
+static func _bounce_contact(level: LevelGrid, origin: Vector2, velocity: Vector2, c: int, r: int) -> Vector3:
+	var tx: float = -INF
+	var ty: float = -INF
+	if velocity.x != 0.0:
+		tx = (float(c if velocity.x > 0.0 else c + 1) * Tile.SIZE - origin.x) / velocity.x
+	if velocity.y != 0.0:
+		ty = (float(r if velocity.y > 0.0 else r + 1) * Tile.SIZE - origin.y) / velocity.y
+	var normal: Vector2 = Vector2.ZERO
+	if tx > ty + 0.00001:
+		normal.x = -signf(velocity.x)
+	elif ty > tx + 0.00001:
+		normal.y = -signf(velocity.y)
+	else:
+		# Exact exposed corners reflect both axes. A seam in a continuous
+		# floor/wall is internal, and must not introduce a sideways rebound.
+		var beside: bool = Tile.is_solid(level.get_cell(r, c - int(signf(velocity.x))))
+		var above: bool = Tile.is_solid(level.get_cell(r - int(signf(velocity.y)), c))
+		normal.x = -signf(velocity.x) if not beside or above else 0.0
+		normal.y = -signf(velocity.y) if not above or beside else 0.0
+	return Vector3(normal.x, normal.y, clampf(maxf(tx, ty), 0.0, 1.0))
+
+
+## Keep ordinary impact sampling, and also inspect bouncy tile boundaries. Otherwise a
+## diagonal sample can skip a narrow contact just before a seam and mistake the
+## next tile's internal edge for an exposed wall. The nudge enters either side
+## of a boundary consistently, including travel to the left/up.
+static func _sweep_times(level: LevelGrid, origin: Vector2, velocity: Vector2, steps: int, bounce_boundaries: bool, bouncy_shot: bool) -> Array[float]:
+	var times: Array[float] = []
+	for step: int in range(1, steps + 1):
+		times.append(float(step) / float(steps))
+	if not bounce_boundaries:
+		return times
+	for axis: int in 2:
+		if velocity[axis] == 0.0:
+			continue
+		var end: float = origin[axis] + velocity[axis]
+		var first: int = ceili(minf(origin[axis], end) / Tile.SIZE)
+		var last: int = floori(maxf(origin[axis], end) / Tile.SIZE)
+		for boundary: int in range(first, last + 1):
+			var fraction: float = (float(boundary) * Tile.SIZE - origin[axis]) / velocity[axis]
+			var sample_time: float = minf(1.0, fraction + 0.001 / maxf(velocity.length(), 1.0))
+			var sample: Vector2 = origin + velocity * sample_time
+			var tile: int = level.get_cell(floori(sample.y / Tile.SIZE), floori(sample.x / Tile.SIZE))
+			if Tile.is_bouncy(tile) or (bouncy_shot and Tile.is_solid(tile) and tile not in [Tile.GLASS, Tile.TNT]):
+				times.append(sample_time)
+	times.sort()
+	return times
+
+
 ## One sweep step of a boss shot. Returns true when it is spent.
 static func _enemy_step(
 	sim: GameSim, p: SimProjectile, cx: float, cy: float, r: int, c: int, prev_r: int, prev_c: int
 ) -> bool:
 	var level: LevelGrid = sim.level
 	var player: PlayerState = sim.player
+	if level.get_cell(r, c) == Tile.TNT:
+		p.dead = true
+		MechanismSystem.detonate_cell(sim, Vector2i(c, r))
+		return true
 	var touches_player: bool = not (
 		cx + p.w / 2.0 <= player.x or cx - p.w / 2.0 >= player.x + player.w
 		or cy + p.h / 2.0 <= player.y or cy - p.h / 2.0 >= player.y + player.h
@@ -176,6 +278,9 @@ static func _hits_boss(sim: GameSim, p: SimProjectile, cx: float, cy: float, pre
 	var boss: BossState = sim.boss
 	if not boss.active or boss.dead or boss.state == BossState.State.SUSPENDED:
 		return BossHit.NONE
+
+	if BossMechanism.is_kind(sim.boss_kind):
+		return BossHit.SPENT if BossMechanism.hit_by_projectile(sim, p, cx, cy, preview) else BossHit.NONE
 
 	if sim.boss_kind == BossState.Kind.GLASS_SLIME:
 		if boss.state == BossState.State.INTRO:
@@ -273,9 +378,16 @@ static func _settle(
 	)
 
 	level.set_cell(prev_r, prev_c, _landed_type(p))
+	sim.animate_tile_from(Vector2(p.x, p.y), Vector2i(prev_c, prev_r), MechanismSystem.SLIDE_TICKS)
+	sim.sliding_cells.erase(Vector2i(prev_c, prev_r))
+	if p.type in [Tile.SAND, Tile.ICE, Tile.TNT]:
+		sim.mechanisms_enabled = true
 	sim.spawn_particles(cell_l + 20.0, cell_t + 20.0, _block_color(p.type), 15, 3.0)
 	sim.add_shake(4.0)
 
+	if p.type == Tile.ICE or level.get_cell(prev_r + 1, prev_c) == Tile.ICE:
+		var ceiling: bool = p.type == Tile.ICE and p.vy < 0.0 and Tile.is_solid(level.get_cell(prev_r - 1, prev_c))
+		MechanismSystem.start_slide(sim, Vector2i(prev_c, prev_r), p.vx, ceiling)
 	if not player_overlaps:
 		return
 	# The new block would trap the player: push them out against the shot's
@@ -322,24 +434,40 @@ static func _worn_type(type: int) -> int:
 ## Predicts only the first contact, using the same spawn and sweep as firing.
 ## Its private projectile is the only state modified by this query.
 static func preview_path(sim: GameSim, aim: PlayerSystem.Aim, ticks: int = 40) -> PackedVector2Array:
+	return preview_trajectory(sim, aim, ticks).points
+
+
+static func preview_trajectory(sim: GameSim, aim: PlayerSystem.Aim, ticks: int = 40) -> Trajectory:
+	var result: Trajectory = Trajectory.new()
 	var origin: Vector2 = PlayerSystem.shot_origin(sim.player, sim.level, aim)
 	var p: SimProjectile = SimProjectile.new()
+	p.type = sim.player.carried_block_type if sim.player.carried_block_type != Tile.AIR else Tile.DIRT
 	p.x = origin.x
 	p.y = origin.y
 	p.vx = aim.x * GameConstants.BULLET_SPEED
 	p.vy = aim.y * GameConstants.BULLET_SPEED
 	var half: Vector2 = Vector2(p.w, p.h) / 2.0
-	var points: PackedVector2Array = PackedVector2Array([origin + half])
+	result.points.append(origin + half)
+	var fuse: int = MechanismSystem.TNT_FUSE_TICKS if p.type == Tile.TNT else 0
 	for tick: int in ticks:
+		# The firing tick advances flight but does not consume the new fuse.
+		# Later ticks detonate before their sweep, as update() does.
+		if fuse > 0 and tick > 0:
+			fuse -= 1
+			if fuse == 0:
+				result.end = PreviewEnd.FUSE
+				break
 		var hit: bool = _sweep(sim, p, true)
 		if not hit:
 			p.x += p.vx
 			p.y += p.vy
-		points.append(Vector2(p.x, p.y) + half)
+		var center: Vector2 = Vector2(p.x, p.y) + half
+		result.points.append(center)
 		if hit:
+			result.end = PreviewEnd.CONTACT if sim.level.in_bounds(Tile.cell_of(center.y), Tile.cell_of(center.x)) else PreviewEnd.BOUNDARY
 			break
-	return points
+	return result
 
 
 static func _block_color(type: int) -> Color:
-	return Palette.PINK_500 if type == Tile.BOUNCY else Palette.AMBER_600
+	return GameSim.debris_color(type)

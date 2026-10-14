@@ -100,12 +100,17 @@ static func update(sim: GameSim) -> void:
 	elif mov_x != 0:
 		player.facing = mov_x
 
-	_apply_horizontal_movement(player, move_left, move_right)
-	_carry_recoil(player)
+	var on_ice: bool = is_on_ice(sim) or (player.grounded and player.ability_type() == Tile.ICE)
+	var on_boss: bool = sim.boss.active and not sim.boss.dead and BossMechanism.is_kind(sim.boss_kind) and BossMechanism.riding(sim)
+	_apply_horizontal_movement(player, move_left, move_right, on_ice, not on_boss)
+	_carry_recoil(player, on_ice)
 
-	player.vy += GameConstants.GRAVITY * GameConstants.AIR_STEP
-	if player.vy > TERMINAL_SOFT_SPEED:
-		player.vy -= (player.vy - TERMINAL_SOFT_SPEED) * 0.15 * GameConstants.AIR_STEP
+	var sand_fall: bool = player.ability_type() == Tile.SAND and player.vy >= 0.0
+	var gravity_factor: float = 1.6 if sand_fall else 1.0
+	var terminal_speed: float = TERMINAL_SOFT_SPEED * (1.4 if sand_fall else 1.0)
+	player.vy += GameConstants.GRAVITY * GameConstants.AIR_STEP * gravity_factor
+	if player.vy > terminal_speed:
+		player.vy -= (player.vy - terminal_speed) * 0.15 * GameConstants.AIR_STEP
 
 	_update_jump(sim)
 	_update_eating(sim, aim)
@@ -120,7 +125,11 @@ static func update(sim: GameSim) -> void:
 		player.bounce_slack = 0.0
 
 	Collision.solve_x(sim)
+	if player.dead:
+		return
 	Collision.solve_y(sim)
+	if player.dead:
+		return
 
 	_check_hazards_and_goal(sim)
 	_check_crushed(sim)
@@ -132,24 +141,14 @@ static func update(sim: GameSim) -> void:
 		player.scale_y = 1.0 + stretch
 
 	if not player.grounded and absf(player.vy) > 10.0 and sim.rng.next_float() < 0.3:
-		var trail_color: Color = Palette.GREEN_400
-		if player.has_block:
-			if Tile.is_bouncy(player.carried_block_type):
-				trail_color = Palette.PINK_400
-			elif player.carried_block_type == Tile.GLASS:
-				trail_color = Palette.CYAN_400
-			elif player.carried_block_type == Tile.STEEL:
-				trail_color = Palette.SLATE_400
-			else:
-				trail_color = Palette.AMBER_400
-		sim.spawn_particles(player.center_x(), player.center_y(), trail_color, 1, 0.5)
+		sim.spawn_particles(player.center_x(), player.center_y(), player.ability_color(), 1, 0.5)
 
 	player.scale_x += (1.0 - player.scale_x) * 0.15
 	player.scale_y += (1.0 - player.scale_y) * 0.15
 
 
 static func _apply_horizontal_movement(
-	player: PlayerState, move_left: bool, move_right: bool
+	player: PlayerState, move_left: bool, move_right: bool, on_ice: bool = false, snap_to_tile: bool = true
 ) -> void:
 	if player.wall_bounce_timer > 0:
 		return  # Keep the bounce velocity.
@@ -171,7 +170,7 @@ static func _apply_horizontal_movement(
 	elif move_right:
 		player.vx = max_speed
 	else:
-		if player.grounded and absf(old_control) < 1.8:
+		if snap_to_tile and player.grounded and not on_ice and absf(old_control) < 1.8:
 			# A gentle pull toward the tile centre helps line up with blocks.
 			var cx: float = player.center_x()
 			var tile_center: float = floorf(cx / Tile.SIZE) * Tile.SIZE + Tile.SIZE / 2.0
@@ -184,18 +183,27 @@ static func _apply_horizontal_movement(
 		acceleration = 1.8 if player.grounded else 1.3
 	elif old_control * player.vx < 0.0:
 		acceleration = 2.0
+	if on_ice:
+		acceleration = 0.16 if move_left or move_right else 0.035
 	player.vx = move_toward(old_control, player.vx, acceleration)
+
+
+static func is_on_ice(sim: GameSim) -> bool:
+	if not sim.player.grounded:
+		return false
+	var row: int = Tile.cell_of(sim.player.y + sim.player.h + 0.1)
+	return sim.level.get_cell(row, Tile.cell_of(sim.player.center_x())) == Tile.ICE
 
 
 ## Walking smooths the control velocity after removing the previous kick.
 ## The sideways spit recoil is added separately while it fades.
-static func _carry_recoil(player: PlayerState) -> void:
+static func _carry_recoil(player: PlayerState, on_ice: bool = false) -> void:
 	if player.recoil_vx == 0.0:
 		return
-	if player.wall_bounce_timer > 0 or player.grounded:
+	if player.wall_bounce_timer > 0 or (player.grounded and not on_ice):
 		player.recoil_vx = 0.0
 		return
-	player.recoil_vx *= pow(RECOIL_CARRY, GameConstants.AIR_STEP)
+	player.recoil_vx *= 0.99 if on_ice else pow(RECOIL_CARRY, GameConstants.AIR_STEP)
 	if absf(player.recoil_vx) < RECOIL_CUTOFF:
 		player.recoil_vx = 0.0
 	player.vx += player.recoil_vx
@@ -251,7 +259,7 @@ static func _update_jump(sim: GameSim) -> void:
 static func _is_near_bouncy(sim: GameSim) -> bool:
 	var player: PlayerState = sim.player
 	var level: LevelGrid = sim.level
-	var is_player_bouncy: bool = player.has_block and player.carried_block_type == Tile.BOUNCY
+	var is_player_bouncy: bool = player.ability_type() == Tile.BOUNCY
 	var left: int = floori((player.x + 0.001) / Tile.SIZE)
 	var right: int = floori((player.x + player.w - 0.001) / Tile.SIZE)
 	var top: int = floori((player.y + 0.001) / Tile.SIZE)
@@ -273,6 +281,11 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 	var boss: BossState = sim.boss
 	var level: LevelGrid = sim.level
 	var target: EatTarget = sim.get_eat_target(player.center_x(), player.center_y(), aim.x, aim.y)
+	if target != null and target.charge != null and sim.input.eat and not player.has_block:
+		BossMechanism.eat_charge(sim, target.charge as GameSim.TntCharge)
+		return
+	if player.eating_charge != null:
+		player.clear_eating()
 
 	if not sim.input.eat or player.has_block:
 		player.clear_eating()
@@ -307,6 +320,11 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 	# The block is swallowed.
 	if is_boss:
 		boss.set_cell(tr, tc, Tile.AIR)
+		if sim.boss_kind == BossState.Kind.SAND_COLOSSUS:
+			BossMechanism.take_sand_core(sim)
+		elif sim.boss_kind == BossState.Kind.SENSOR_SENTINEL:
+			boss.mechanism.covered_ports.erase(Vector2i(tc, tr))
+			boss.set_cell(tr, tc, Tile.SENSOR)
 		if sim.boss_kind == BossState.Kind.MUD_GOLEM:
 			if block_type == Tile.GOAL:
 				BossMudGolem.kill_and_reveal_goal(sim)
@@ -314,6 +332,7 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 				BossMudGolem.update_bounds(sim)
 	else:
 		level.set_cell(tr, tc, Tile.AIR)
+		sim.sliding_cells.erase(Vector2i(tc, tr))
 
 	# Eating the boss core wins the fight; nothing is carried.
 	if block_type != Tile.GOAL:
@@ -323,8 +342,9 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 			prev_count = 1
 		elif block_type == Tile.DIRT_EATEN_2 or block_type == Tile.BOUNCY_EATEN_2:
 			prev_count = 2
-		var next_count: int = prev_count + 1
-		var color: Color = Palette.PINK_500 if is_bouncy else Palette.AMBER_600
+		var reusable: bool = block_type in [Tile.SAND, Tile.ICE, Tile.TNT]
+		var next_count: int = 0 if reusable else prev_count + 1
+		var color: Color = PlayerState.material_color(block_type)
 		if next_count >= 3:
 			# The third swallow digests the block for good.
 			player.has_block = false
@@ -336,7 +356,7 @@ static func _update_eating(sim: GameSim, aim: Aim) -> void:
 		else:
 			player.has_block = true
 			player.waiting_for_shoot_release = true
-			player.carried_block_type = Tile.BOUNCY if is_bouncy else Tile.DIRT
+			player.carried_block_type = block_type if reusable else (Tile.BOUNCY if is_bouncy else Tile.DIRT)
 			player.carried_block_eaten_count = next_count
 			sim.spawn_particles(tx, ty, color, 15, 6.0)
 
@@ -399,6 +419,10 @@ static func shot_origin(player: PlayerState, level: LevelGrid, aim: Aim) -> Vect
 static func _fire(sim: GameSim, aim: Aim) -> void:
 	var player: PlayerState = sim.player
 	player.in_bullet_time = false
+	if player.has_sand_core:
+		BossMechanism.return_sand_core(sim)
+	var returned_charge: bool = player.has_furnace_charge
+	player.has_furnace_charge = false
 	var block_type: int = player.carried_block_type if player.carried_block_type != 0 else Tile.DIRT
 	var eaten_count: int = (
 		player.carried_block_eaten_count if player.carried_block_eaten_count != 0 else 1
@@ -418,7 +442,11 @@ static func _fire(sim: GameSim, aim: Aim) -> void:
 	projectile.vx = aim.x * GameConstants.BULLET_SPEED
 	projectile.vy = aim.y * GameConstants.BULLET_SPEED
 	projectile.type = block_type
+	projectile.returned_charge = returned_charge
 	projectile.eaten_count = eaten_count
+	if block_type == Tile.TNT:
+		projectile.fuse_ticks = MechanismSystem.TNT_FUSE_TICKS
+		projectile.fuse_start_tick = sim.tick_count
 	sim.projectiles.append(projectile)
 	sim.play(Sfx.Id.SHOOT)
 

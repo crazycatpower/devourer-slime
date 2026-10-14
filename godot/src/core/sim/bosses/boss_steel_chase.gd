@@ -45,7 +45,8 @@ static func update(sim: GameSim) -> void:
 	if boss.state == BossState.State.INTRO:
 		boss.intro_timer -= 1
 		# The steel face enters from the left during the warning.
-		boss.x = lerpf(-boss.w - SPIKE_LENGTH, Tile.SIZE, 1.0 - float(boss.intro_timer) / float(boss.intro_duration))
+		var progress: float = 1.0 - float(boss.intro_timer) / float(boss.intro_duration)
+		boss.x = lerpf(-boss.w - SPIKE_LENGTH, Tile.SIZE, smoothstep(0.0, 1.0, progress))
 		if boss.intro_timer <= 0:
 			boss.state = BossState.State.ACTIVE
 		return

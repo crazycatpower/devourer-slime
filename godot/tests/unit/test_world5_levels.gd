@@ -1,5 +1,7 @@
 extends TestCase
 ## End-to-end routes: inputs only, no teleports or terrain edits.
+## Slot 49 aims at the exposed floor after the continuous bounce-contact fix;
+## the old aim depended on snapping the rebound to the previous grid cell.
 
 
 func test_world5_stages_are_authored_valid_and_distinct() -> void:

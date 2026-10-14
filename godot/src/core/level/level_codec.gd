@@ -21,6 +21,14 @@ const _CHAR_TO_TILE: Dictionary[String, int] = {
 	"*": Tile.BOUNCY,
 	"X": Tile.GLASS,
 	"O": Tile.VOID,
+	"S": Tile.SENSOR,
+	"R": Tile.RAIL_RIGHT,
+	"L": Tile.RAIL_LEFT,
+	"U": Tile.RAIL_UP,
+	"D": Tile.RAIL_DOWN,
+	"A": Tile.SAND,
+	"I": Tile.ICE,
+	"T": Tile.TNT,
 }
 
 ## Partially eaten blocks are saved as their pristine tile.
@@ -40,7 +48,55 @@ const _TILE_TO_CHAR: Dictionary[int, String] = {
 	Tile.BOUNCY_EATEN_2: "*",
 	Tile.GLASS: "X",
 	Tile.VOID: "O",
+	Tile.SENSOR: "S",
+	Tile.RAIL_RIGHT: "R",
+	Tile.RAIL_LEFT: "L",
+	Tile.RAIL_UP: "U",
+	Tile.RAIL_DOWN: "D",
+	Tile.SAND: "A",
+	Tile.ICE: "I",
+	Tile.TNT: "T",
 }
+
+
+## Legacy levels remain row arrays. Only wired levels need the extended format.
+static func encode_document(data: LevelData) -> Variant:
+	var rows: Array = Array(encode(data))
+	if data.grid.wires.is_empty() and data.grid.sensors.is_empty() and data.grid.rails.is_empty():
+		return rows
+	var wires: Array = []
+	for cell: Vector2i in data.grid.wires:
+		wires.append([cell.x, cell.y])
+	var sensors: Array = []
+	for cell: Vector2i in data.grid.sensors:
+		sensors.append([cell.x, cell.y])
+	var rails: Array = []
+	for cell: Vector2i in data.grid.rails:
+		rails.append([cell.x, cell.y, data.grid.rails[cell]])
+	return {"rows": rows, "wires": wires, "sensors": sensors, "rails": rails}
+
+
+static func decode_document(value: Variant) -> LevelData:
+	var data: LevelData = decode(LevelValidator.rows_from_json(value))
+	if value is Dictionary:
+		var document: Dictionary = value
+		for layer: String in ["wires", "sensors", "rails"]:
+			var cell_list: Variant = document.get(layer, [])
+			if cell_list is Array:
+				for pair: Variant in cell_list:
+					if not pair is Array:
+						continue
+					var coordinates: Array = pair
+					if coordinates.size() == (3 if layer == "rails" else 2) and (coordinates[0] is int or coordinates[0] is float) and (coordinates[1] is int or coordinates[1] is float):
+						var cell: Vector2i = Vector2i(coordinates[0] as int, coordinates[1] as int)
+						if layer == "wires":
+							data.grid.set_wire(cell, true)
+						elif layer == "rails":
+							if coordinates[2] is int or coordinates[2] is float:
+								data.grid.set_rail(cell, coordinates[2] as int)
+						else:
+							data.grid.set_sensor(cell, true)
+	return data
 
 
 ## True when [param ch] is a character the format defines.
@@ -87,6 +143,10 @@ static func encode(data: LevelData) -> PackedStringArray:
 				line += CHAR_PLAYER
 			else:
 				var ch: String = _TILE_TO_CHAR.get(grid.get_cell(r, c), CHAR_AIR)
+				if grid.get_cell(r, c) == Tile.AIR and grid.sensors.has(Vector2i(c, r)):
+					ch = "S"
+				elif grid.get_cell(r, c) == Tile.AIR and grid.rails.has(Vector2i(c, r)):
+					ch = _TILE_TO_CHAR[grid.rails[Vector2i(c, r)]]
 				line += ch
 		out.append(line)
 	return out

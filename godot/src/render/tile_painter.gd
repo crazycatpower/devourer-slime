@@ -67,6 +67,33 @@ static func _draw_static(p: Painter, t: int, corners: int) -> void:
 	var x: float = 0.0
 	var y: float = 0.0
 	match t:
+		Tile.SENSOR:
+			# An open frame reads as a pass-through region, even over a block.
+			p.stroke_round_rect(3.0, 3.0, 34.0, 34.0, 6.0, Palette.SKY_400, 2.0)
+			for corner: Vector2 in [Vector2(8, 8), Vector2(32, 8), Vector2(8, 32), Vector2(32, 32)]:
+				p.fill_circle(corner.x, corner.y, 2.0, Palette.SKY_100)
+			p.stroke_circle(20.0, 20.0, 5.0, Palette.SKY_400, 1.5)
+		Tile.RAIL_RIGHT, Tile.RAIL_LEFT, Tile.RAIL_UP, Tile.RAIL_DOWN:
+			var outgoing: Vector2i = Tile.rail_direction(t)
+			draw_track(p, Vector2(20, 20), outgoing, [outgoing, -outgoing])
+		Tile.SAND:
+			_block(p, x, y, Color("c9a25a"), Color("826639"), 3.0, corners)
+			# A paler drift across the middle sets it apart from dirt's dark clod.
+			p.fill_round_rect(9.0, 16.0, 22.0, 8.0, 4.0, Color("dbb873"))
+		Tile.ICE:
+			# Calmer than glass and with no glint: a pale crystal in the middle.
+			_block(p, x, y, Color("6fbdd6"), Color("3a86ac"), 3.0, corners)
+			p.polygon(PackedVector2Array([Vector2(20, 11), Vector2(29, 20), Vector2(20, 29), Vector2(11, 20)]), Color("a3dcec"))
+		Tile.TNT:
+			_block(p, x, y, Palette.RED_600, Color("7f1d1d"), 3.0, corners)
+			p.fill_round_rect(5.0, 13.5, 30.0, 13.0, 4.0, Color("f3d9bd"))
+			# Geometric TNT lettering works in the recorded tile shape.
+			for start: float in [7.0, 25.0]:
+				p.line(start, 17.0, start + 7.0, 17.0, Color("7f1d1d"), 2.0)
+				p.line(start + 3.5, 17.0, start + 3.5, 24.0, Color("7f1d1d"), 2.0)
+			p.polyline(PackedVector2Array([Vector2(17, 24), Vector2(17, 17), Vector2(22, 24), Vector2(22, 17)]), Color("7f1d1d"), 1.8)
+			# The fuse stands straight up in the middle.
+			p.fill_round_rect(18.5, 5.0, 3.0, 6.0, 1.5, Palette.AMBER_400)
 		Tile.DIRT:
 			_block(p, x, y, Palette.AMBER_600, Palette.AMBER_700, 3.0, corners)
 			# A darker clod in the middle; no lines or dots.
@@ -94,17 +121,17 @@ static func _draw_static(p: Painter, t: int, corners: int) -> void:
 			p.arc(x + _T / 2.0, y + _T / 2.0, 8.0, PI * 0.2, PI * 0.8, Palette.LIME_400, 1.5)
 			p.polyline(_points(x, y, [8, 32, 16, 19, 8, 8, 20, 13, 32, 8, 24, 19, 32, 32]), Palette.LIME_400, 2.0)
 		Tile.STEEL:
-			_block(p, x, y, Color("435c6c"), Color("243646"), 3.0, corners)
-			_inset(p, x, y, 10.0, 4.0, Color("304452"))
-			for rivet: Vector2 in [Vector2(7, 7), Vector2(33, 7), Vector2(7, 33), Vector2(33, 33)]:
-				p.fill_circle(x + rivet.x, y + rivet.y, 1.5, Color("243646"))
+			_block(p, x, y, Color("526777"), Color("354957"), 3.0, corners)
+			# One soft inset, like dirt's clod: no rivets, bevels or specular lines.
+			_inset(p, x, y, 11.0, 6.0, Color("435867"))
 		Tile.SPIKE_UP, Tile.SPIKE_RIGHT, Tile.SPIKE_DOWN, Tile.SPIKE_LEFT:
 			draw_spikes(p, t, x, y, _SPIKE_LENGTH)
 		Tile.GLASS:
-			# Solid tones that read as a clear pane against the dark walls.
-			_block(p, x, y, Color("0f3a47"), Color("1a8298"), 2.0, corners)
-			p.line(x + 11.0, y + 11.0, x + 29.0, y + 29.0, Color("1a8298"), 1.5)
-			p.line(x + 29.0, y + 11.0, x + 11.0, y + 29.0, Color("1a8298"), 1.5)
+			_block(p, x, y, Color("378596"), Color("255e72"), 3.0, corners)
+			# A single soft reflection distinguishes glass from ice's crystal.
+			p.line(13.0, 27.0, 27.0, 13.0, Color("8ac6cd"), 3.0)
+			p.fill_circle(13.0, 27.0, 1.5, Color("8ac6cd"))
+			p.fill_circle(27.0, 13.0, 1.5, Color("8ac6cd"))
 		Tile.VOID:
 			_block(p, x, y, Palette.VOID_BACKGROUND, Palette.PURPLE_600, 2.0, corners)
 
@@ -120,19 +147,14 @@ static func draw_live(p: Painter, t: int, x: float, y: float, time_ms: float) ->
 			# The bright core is exactly the lethal part of the tile.
 			var pulse: float = 0.8 + sin(time_ms / 150.0) * 0.2
 			_inset(p, x, y, 12.0, 5.0, Color(Palette.PURPLE_400, pulse))
-			var void_rot: float = time_ms * 0.002 + (x * 0.03 + y * 0.02)
-			for i: int in 4:
-				var a: float = void_rot + float(i) * (PI * 0.5)
-				p.fill_circle(x + _T * 0.5 + cos(a) * 12.0, y + _T * 0.5 + sin(a) * 12.0, 1.4, Palette.PURPLE_500)
 		Tile.GOAL:
-			var glow: float = 0.16 + sin(time_ms * 0.004) * 0.07
+			var pulse: float = sin(time_ms * 0.004)
+			var glow: float = 0.2 + pulse * 0.08
 			p.fill_round_rect(x, y, _T, _T, _RADIUS, Color(Palette.AMBER_400, glow))
-			p.stroke_round_rect(x + 5.0, y + 5.0, _T - 10.0, _T - 10.0, 7.0, Palette.AMBER_400, 3.5)
-			p.fill_round_rect(x + 12.0, y + 12.0, _T - 24.0, _T - 24.0, 5.0, Palette.AMBER_100)
-			var goal_rot: float = time_ms * 0.0025
-			for i: int in 4:
-				var a: float = goal_rot + float(i) * (PI * 0.5)
-				p.fill_circle(x + _T * 0.5 + cos(a) * 10.0, y + _T * 0.5 + sin(a) * 10.0, 1.3, Palette.YELLOW_200)
+			p.stroke_round_rect(x + 4.0, y + 4.0, _T - 8.0, _T - 8.0, 7.0, Palette.AMBER_400, 2.5)
+			p.fill_round_rect(x + 10.0, y + 10.0, _T - 20.0, _T - 20.0, 5.0, Color("451a03"))
+			p.fill_circle(x + _T * 0.5, y + _T * 0.5, 8.5 + pulse * 1.2, Color(Palette.AMBER_400, 0.4))
+			p.fill_circle(x + _T * 0.5, y + _T * 0.5, 5.0 + pulse * 0.8, Palette.AMBER_100)
 
 ## Three flat red teeth along one side of a cell. [param spike_type] is one of the
 ## four spike tiles and decides which way they point; teeth of
@@ -147,47 +169,55 @@ static func draw_spikes(p: Painter, spike_type: int, x: float, y: float, length:
 		Tile.SPIKE_LEFT: angle = -PI * 0.5
 	p.rotate(angle)
 	p.translate(-_T * 0.5, -_T * 0.5)
+	# Three chunky coral teeth. Tips stay at the same lethal height, while
+	# the outline has soft shoulders instead of a metallic razor highlight.
+	p.fill_round_rect(1.0, _T - 5.0, _T - 2.0, 5.0, 2.0, Color("913e51"))
 	var third: float = _T / 3.0
-	for s: int in 3:
-		var a: float = float(s) * third
-		var tip: Vector2 = Vector2(a + third * 0.5, _T - length)
-		p.triangle(Vector2(a, _T), tip, Vector2(a + third, _T), Color("e85b6b"))
-	p.fill_rect(0.0, _T - 3.0, _T, 3.0, Color("712c42"))
+	for tooth: int in 3:
+		var left: float = float(tooth) * third
+		var mid: float = left + third * 0.5
+		var top: float = _T - length
+		p.polygon(PackedVector2Array([
+			Vector2(left + 0.5, _T - 3.0), Vector2(left + 1.0, _T - 6.0),
+			Vector2(mid - 0.9, top + 0.5), Vector2(mid + 0.9, top + 0.5),
+			Vector2(left + third - 1.0, _T - 6.0), Vector2(left + third - 0.5, _T - 3.0)
+		]), Color("913e51"))
+		p.triangle(Vector2(left + 3.0, _T - 4.0), Vector2(mid, top + 3.0), Vector2(left + third - 3.0, _T - 4.0), Color("ee8491"))
 	p.pop()
 
 ## Flying or carried block of [param type], drawn with distinct surface and worn patterns.
 static func draw_projectile(p: Painter, type: int, x: float, y: float, w: float, h: float) -> void:
-	var radius: float = minf(w, h) * 0.24
-	if type == Tile.GLASS:
-		p.fill_round_rect(x, y, w, h, radius, Palette.CYAN_500)
-		p.fill_round_rect(x + 3.0, y + 3.0, w - 6.0, h - 6.0, maxf(radius - 3.0, 1.0), Palette.CYAN_200)
-	elif type == Tile.BOUNCY or type == Tile.BOUNCY_EATEN_1 or type == Tile.BOUNCY_EATEN_2:
-		var fill: Color = Palette.PINK_500
-		var stroke: Color = Palette.PINK_600
-		if type == Tile.BOUNCY_EATEN_1:
-			fill = Palette.PINK_700
-			stroke = Palette.PINK_800
-		elif type == Tile.BOUNCY_EATEN_2:
-			fill = Palette.PINK_900
-			stroke = Palette.GREEN_500
-		p.fill_round_rect(x, y, w, h, radius, stroke)
-		p.fill_round_rect(x + 3.0, y + 3.0, w - 6.0, h - 6.0, maxf(radius - 3.0, 1.0), fill)
-		p.stroke_circle(x + w * 0.5, y + h * 0.5, minf(w, h) * 0.25, Palette.PINK_200, 1.8)
-		if type == Tile.BOUNCY_EATEN_1 or type == Tile.BOUNCY_EATEN_2:
-			p.fill_round_rect(x + 3.0, y + 3.0, w - 6.0, h - 6.0, maxf(radius - 3.0, 1.0), _SLIME_LIGHT)
-	else:
-		var fill: Color = Palette.AMBER_600
-		var stroke: Color = Palette.AMBER_700
-		if type == Tile.DIRT_EATEN_1:
-			fill = Palette.AMBER_700
-			stroke = Palette.AMBER_800
-		elif type == Tile.DIRT_EATEN_2:
-			fill = Palette.AMBER_900
-			stroke = Palette.GREEN_500
-		p.fill_round_rect(x, y, w, h, radius, stroke)
-		p.fill_round_rect(x + 3.0, y + 3.0, w - 6.0, h - 6.0, maxf(radius - 3.0, 1.0), fill)
-		if type == Tile.DIRT_EATEN_1 or type == Tile.DIRT_EATEN_2:
-			p.fill_round_rect(x + 3.0, y + 3.0, w - 6.0, h - 6.0, maxf(radius - 3.0, 1.0), _SLIME_LIGHT)
+	# The inventory, projectile, editor and terrain all use the same artwork.
+	p.push()
+	p.translate(x, y)
+	p.scale(w / _T, h / _T)
+	draw(p, type, 0.0, 0.0, 0.0)
+	p.pop()
+
+## Chunky two-rail silhouette, shared by isolated icons and connected devices.
+static func draw_track(p: Painter, center: Vector2, outgoing: Vector2i, connected: Array[Vector2i], powered: bool = false) -> void:
+	var rail_color: Color = Color("7893a1")
+	for branch: Vector2i in connected:
+		var direction: Vector2 = Vector2(branch)
+		var normal: Vector2 = Vector2(-direction.y, direction.x)
+		var tie: Vector2 = center + direction * 11.0
+		p.line(tie.x - normal.x * 13.0, tie.y - normal.y * 13.0, tie.x + normal.x * 13.0, tie.y + normal.y * 13.0, Color("354957"), 5.0)
+		for side: float in [-1.0, 1.0]:
+			var a: Vector2 = center + normal * side * 8.5
+			var b: Vector2 = a + direction * 20.0
+			p.line(a.x, a.y, b.x, b.y, rail_color, 3.5)
+		if powered:
+			var end: Vector2 = center + direction * 20.0
+			p.line(center.x, center.y, end.x, end.y, Color(Palette.LIME_400, 0.65), 2.0)
+	var forward: Vector2 = Vector2(outgoing)
+	var normal: Vector2 = Vector2(-forward.y, forward.x)
+	var tip: Vector2 = center + forward * 7.0
+	var a: Vector2 = center - forward * 3.0 + normal * 5.5
+	var b: Vector2 = center - forward * 3.0 - normal * 5.5
+	p.triangle(a, tip, b, Palette.LIME_400 if powered else Color("b9cad0"))
+	if not connected.has(-outgoing):
+		var stop: Vector2 = center - forward * 13.0
+		p.line(stop.x - normal.x * 9.5, stop.y - normal.y * 9.5, stop.x + normal.x * 9.5, stop.y + normal.y * 9.5, Color("526777"), 4.0)
 
 
 static func _block(

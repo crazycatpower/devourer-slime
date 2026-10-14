@@ -12,3 +12,7 @@ var type: int = Tile.DIRT
 ## Ticks the warning column is shown before the block starts to fall.
 var delay: int = 0
 var warning_color: Color = Palette.AMBER_600
+
+## Mechanism bosses drop their actual material, rather than a random legacy tile.
+var fixed_landing_type: bool = false
+var lethal: bool = true

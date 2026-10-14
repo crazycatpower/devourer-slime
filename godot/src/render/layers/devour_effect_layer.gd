@@ -26,7 +26,7 @@ func _on_sfx(id: Sfx.Id, _param: float, _delay: float) -> void:
 		return
 	var sim: GameSim = view.sim
 	_burst_age = 0.0
-	_burst_origin = Vector2(sim.player.center_x(), sim.player.center_y())
+	_burst_origin = view.player_position() + Vector2(sim.player.w, sim.player.h) * 0.5
 	var aim: PlayerSystem.Aim = PlayerSystem.aim_of(sim, sim.input.mouse_x, sim.input.mouse_y)
 	_burst_direction = Vector2(aim.x, aim.y)
 
@@ -39,7 +39,7 @@ func _paint(p: Painter, sim: GameSim) -> void:
 		if view.exit_vortex.active:
 			_paint_exit_motes(p)
 		return
-	var body: Vector2 = view.tween_position(player.prev_x, player.prev_y, player.x, player.y) + Vector2(player.w, player.h) * 0.5
+	var body: Vector2 = view.player_position() + Vector2(player.w, player.h) * 0.5
 	if player.has_eating_target and not player.eating_target_is_boss_cell:
 		_paint_devour_stream(p, body, player)
 	if player.has_block and view.shoot_held and not player.waiting_for_shoot_release:
@@ -57,7 +57,7 @@ func _paint(p: Painter, sim: GameSim) -> void:
 ## Viscous slime suction stream and enzyme motes connecting mouth to target block.
 func _paint_devour_stream(p: Painter, body: Vector2, player: PlayerState) -> void:
 	var progress: float = clampf(player.eating_progress, 0.0, 1.0)
-	var origin: Vector2 = Vector2(float(player.eating_target_c) * Tile.SIZE + Tile.SIZE * 0.5, float(player.eating_target_r) * Tile.SIZE + Tile.SIZE * 0.5)
+	var origin: Vector2 = view.tile_position(Vector2i(player.eating_target_c, player.eating_target_r)) + Vector2.ONE * Tile.SIZE * 0.5
 	var pull: float = progress * progress * (3.0 - 2.0 * progress)
 	var current_block: Vector2 = origin.lerp(body, pull)
 	var diff: Vector2 = body - current_block

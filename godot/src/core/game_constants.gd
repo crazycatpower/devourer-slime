@@ -28,7 +28,9 @@ const MAX_SPEED: float = 4.2
 const RECOIL_FORCE: float = 10.0
 const BULLET_SPEED: float = 12.0
 
-const WORLD_COUNT: int = 5
+## Worlds the game has room for. The later ones stay closed until they have
+## levels; see [method LevelRepository.world_has_levels].
+const WORLD_COUNT: int = 10
 const LEVELS_PER_WORLD: int = 10
 const SLOT_COUNT: int = WORLD_COUNT * LEVELS_PER_WORLD
 

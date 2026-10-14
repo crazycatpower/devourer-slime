@@ -95,7 +95,7 @@ func test_missing_start_marker_falls_back_to_a_free_cell() -> void:
 
 
 func test_library_slots() -> void:
-	check_eq(LevelLibrary.authored_slots().size(), 48)
+	check_eq(LevelLibrary.authored_slots().size(), 93)
 	check(LevelLibrary.has_authored_layout(1))
 	check(not LevelLibrary.has_authored_layout(20))
 	check(LevelLibrary.has_authored_layout(23))

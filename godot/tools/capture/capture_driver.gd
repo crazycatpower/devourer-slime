@@ -13,6 +13,17 @@ func run() -> void:
 	var app_scene: PackedScene = load("res://src/app/app.tscn")
 	_app = app_scene.instantiate()
 	get_tree().root.add_child(_app)
+	if "--tile-style" in OS.get_cmdline_user_args():
+		await _wait(0.3)
+		get_window().size = Vector2i(1280, 720)
+		_app.hide()
+		var sheet: Node2D = Node2D.new()
+		sheet.set_script(load("res://tools/capture/tile_style_sheet.gd"))
+		get_tree().root.add_child(sheet)
+		await _wait(0.3)
+		await _shot("tile_style_before" if "--before" in OS.get_cmdline_user_args() else "tile_style_after")
+		get_tree().quit(0)
+		return
 	if "--project-qa" in OS.get_cmdline_user_args():
 		await _project_qa()
 		get_tree().quit(0)
@@ -53,7 +64,8 @@ func run() -> void:
 		return
 	if "--art-review" in OS.get_cmdline_user_args():
 		# Existing official layouts only; freeze gameplay for material review.
-		for stage: int in [21, 19, 31, 50]:
+		get_window().size = Vector2i(1280, 720)
+		for stage: int in [21, 19, 31, 50, 61, 71, 81, 91]:
 			_app.play_official(stage)
 			await _wait(0.15)
 			var art_screen: GameScreen = _screen() as GameScreen
@@ -414,7 +426,7 @@ func _project_qa() -> void:
 	get_window().size = Vector2i(1280, 720)
 	await _wait(0.2)
 	var results: Array[Dictionary] = []
-	for slot: int in [10, 20, 30, 40, 50]:
+	for slot: int in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 		_app.play_official(slot)
 		await _wait(0.15)
 		var game: GameScreen = _screen() as GameScreen
@@ -428,11 +440,13 @@ func _project_qa() -> void:
 		if sim.boss_kind == BossState.Kind.STEEL_CHASE:
 			sim.player.place_at(sim.boss.target_vx + 40.0, sim.player.y)
 		else:
-			sim.player.place_at(sim.boss.x - 220.0, sim.level.pixel_height() - Tile.SIZE * 2.0)
+			# Glass extends its arena underground. Preserve the actual entrance
+			# height instead of placing the player inside the bottom of the map.
+			sim.player.place_at(sim.boss.x - 220.0, sim.player.y)
 		for tick: int in 260:
 			sim.step(SimInput.new())
 			sim.update_camera()
-			if sim.boss_kind == BossState.Kind.STEEL_CHASE and sim.boss.state == BossState.State.ACTIVE:
+			if sim.boss.state == BossState.State.ACTIVE:
 				break
 			if sim.player.dead:
 				break
