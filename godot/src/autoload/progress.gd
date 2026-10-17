@@ -7,12 +7,20 @@ extends Node
 signal changed
 
 var _cleared: Dictionary[int, bool] = {}
+var _records: LevelRecords = LevelRecords.new()
 
 
 func _ready() -> void:
+	reload_from_disk()
+
+
+func reload_from_disk() -> void:
+	_cleared.clear()
+	_records.load_data({})
 	var config: ConfigFile = ConfigFile.new()
 	if SafeConfig.load_file(config, SavePaths.progress_file()) != OK:
 		return
+	_records.load_data(config.get_value("progress", "best_times_v1", {}))
 	var stored: Variant = config.get_value("progress", "cleared", PackedInt32Array())
 	if stored is PackedInt32Array:
 		var slots: PackedInt32Array = stored
@@ -37,6 +45,18 @@ func mark_cleared(slot: int) -> void:
 	changed.emit()
 
 
+func best_time(key: String) -> float:
+	return _records.best(key)
+
+
+func record_time(key: String, seconds: float) -> bool:
+	if not _records.record(key, seconds):
+		return false
+	_save()
+	changed.emit()
+	return true
+
+
 func _save() -> void:
 	var slots: PackedInt32Array = PackedInt32Array()
 	for slot: int in _cleared:
@@ -44,6 +64,7 @@ func _save() -> void:
 	slots.sort()
 	var config: ConfigFile = ConfigFile.new()
 	config.set_value("progress", "cleared", slots)
+	config.set_value("progress", "best_times_v1", _records.times)
 	DirAccess.make_dir_recursive_absolute(SavePaths.root())
 	var error: Error = SafeConfig.save_file(config, SavePaths.progress_file())
 	if error != OK:

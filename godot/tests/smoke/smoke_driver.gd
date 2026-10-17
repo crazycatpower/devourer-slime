@@ -10,6 +10,8 @@ var _app: App
 
 func run() -> void:
 	SavePaths.wipe_sandbox()
+	Progress.reload_from_disk()
+	Settings.set_game_speed(1.0)
 	# Run the clock fast: the game logic counts ticks, not seconds.
 	Engine.time_scale = 12.0
 	var app_scene: PackedScene = load("res://src/app/app.tscn")
@@ -60,6 +62,8 @@ func _test_play_and_win() -> void:
 	var sim: GameSim = game.get("_sim")
 	await _physics_frames(20)
 	_check(sim.tick_count >= 15, "the simulation is ticking (%d ticks)" % sim.tick_count)
+	var clock: LevelTimer = game.get("_clock")
+	_check(not clock.started and clock.seconds == 0.0, "timer waits for the first action")
 
 	# Walk right to the goal of the restored level 1.
 	_key(KEY_D, true)
@@ -71,6 +75,12 @@ func _test_play_and_win() -> void:
 	_key(KEY_W, false)
 	_check(sim.player.won, "holding right reaches the goal of level 11")
 	_check(Progress.is_cleared(11), "clearing a level is recorded")
+	_check(clock.started and clock.finished and clock.seconds > 0.0, "winning freezes the run time")
+	_check(Progress.best_time(game.get("_record_key") as String) > 0.0, "winning saves the best time")
+	var saved_progress: ConfigFile = ConfigFile.new()
+	_check(SafeConfig.load_file(saved_progress, SavePaths.progress_file()) == OK, "progress file can be reloaded")
+	var saved_times: Dictionary = saved_progress.get_value("progress", "best_times_v1", {})
+	_check(saved_times.has(game.get("_record_key")), "best time is persisted in the progress file")
 
 	# The jump key continues to the next level.
 	_key(KEY_W, true)
@@ -101,13 +111,20 @@ func _test_pause() -> void:
 	if game == null:
 		return
 	var sim: GameSim = game.get("_sim")
+	_key(KEY_A, true)
+	await _physics_frames(2)
+	_key(KEY_A, false)
+	_check((game.get("_clock") as LevelTimer).started, "pause test uses an active run timer")
 	_key(KEY_ESCAPE, true)
 	_key(KEY_ESCAPE, false)
 	await _frames(3)
 	_check(get_tree().paused, "Escape pauses the game")
 	var ticks: int = sim.tick_count
+	var clock: LevelTimer = game.get("_clock")
+	var paused_seconds: float = clock.seconds
 	await _physics_frames(15)
 	_check(sim.tick_count == ticks, "the simulation is frozen while paused")
+	_check(clock.seconds == paused_seconds, "the run timer is frozen while paused")
 	_key(KEY_ESCAPE, true)
 	_key(KEY_ESCAPE, false)
 	await _frames(3)
@@ -126,6 +143,8 @@ func _test_input_reset() -> void:
 	reader.handle_event(press)
 	reader.sample(Vector2.ZERO)
 	game.call(&"_restart")
+	var reset_clock: LevelTimer = game.get("_clock")
+	_check(reset_clock.seconds == 0.0 and not reset_clock.started, "restarting the whole level resets the timer")
 	_check(not reader.sample(Vector2.ZERO).shoot_released, "restart cancels aim without a phantom shot")
 	press.action = InputBindings.JUMP
 	reader.handle_event(press)
@@ -156,11 +175,14 @@ func _test_death_and_restart() -> void:
 		frames += 1
 	_key(KEY_D, false)
 	_check(sim.player.dead, "walking into spikes kills the player")
+	var clock: LevelTimer = game.get("_clock")
+	var before_rewind: float = clock.seconds
 	# R restarts at once instead of waiting for the death screen.
 	_key(KEY_R, true)
 	_key(KEY_R, false)
 	await _physics_frames(3)
 	_check(not sim.player.dead, "the restart key restarts the level")
+	_check(clock.seconds >= before_rewind and clock.seconds > 0.0, "rewinding death preserves elapsed time")
 
 
 ## Swallows a block and spits it out again using real mouse events.

@@ -85,6 +85,32 @@ layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
+[node name="TimerBadge" type="PanelContainer" parent="Hud/HBox"]
+layout_mode = 2
+size_flags_vertical = 0
+mouse_filter = 2
+theme_type_variation = &"InsetPanel"
+
+[node name="Times" type="VBoxContainer" parent="Hud/HBox/TimerBadge"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="TimeLabel" type="Label" parent="Hud/HBox/TimerBadge/Times"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(172, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 22
+text = "計時 00:00.00"
+
+[node name="BestTimeLabel" type="Label" parent="Hud/HBox/TimerBadge/Times"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 14
+text = "首次操作開始計時"
+
 [node name="PauseButton" type="Button" parent="Hud/HBox"]
 unique_name_in_owner = true
 layout_mode = 2

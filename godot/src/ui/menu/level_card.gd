@@ -72,7 +72,8 @@ func show_slot(slot: int, custom_tab: bool) -> void:
 	if has_boss and BossMechanism.is_kind(LevelLibrary.boss_kind_for_slot(slot)):
 		tooltip_text = BossMechanism.name_for(LevelLibrary.boss_kind_for_slot(slot)) + "：" + BossMechanism.hint(LevelLibrary.boss_kind_for_slot(slot))
 	if not custom_tab and Progress.is_cleared(slot):
-		_add_badge("已通關", Palette.EMERALD_400)
+		var best: float = Progress.best_time(LevelRecords.key_for(slot, LevelStore.get_level(slot)))
+		_add_badge("最佳 " + LevelTimer.format_time(best) if best > 0.0 else "已通關", Palette.EMERALD_400)
 
 	_play_button.visible = not custom_tab
 	_edit_button.visible = custom_tab

@@ -42,6 +42,11 @@ var _win_recorded: bool = false
 var _completion_sent: bool = false
 var _rewind: DeathRewind = DeathRewind.new()
 var _recovering: bool = false
+var _clock: LevelTimer = LevelTimer.new()
+var _record_key: String = ""
+var _best_seconds: float = 0.0
+var _new_record: bool = false
+var _timer_text: String = ""
 
 @onready var _view: WorldView = %WorldView
 @onready var _overlay: GameOverlay = %GameOverlay
@@ -49,6 +54,8 @@ var _recovering: bool = false
 @onready var _pause_button: Button = %PauseButton
 @onready var _pause_menu: SettingsDialog = %PauseMenu
 @onready var _backdrop: MenuBackdrop = %Backdrop
+@onready var _time_label: Label = %TimeLabel
+@onready var _best_time_label: Label = %BestTimeLabel
 
 
 ## Must be called before the screen enters the tree. [param level] overrides
@@ -72,6 +79,9 @@ func _ready() -> void:
 	_sim.level_reset.connect(_bullet_time.refill)
 	_sim.level_reset.connect(_input.release_all)
 	_sim.level_reset.connect(_rewind.clear)
+	_sim.level_reset.connect(_reset_clock)
+	_record_key = LevelRecords.key_for(_slot, _level)
+	_best_seconds = Progress.best_time(_record_key)
 	_sim.bullet_time_enabled = Settings.bullet_time_enabled
 	_sim.load_level(_slot, _level, LevelLibrary.boss_kind_for_slot(_slot))
 	_sim.external_death_recovery = true
@@ -132,10 +142,14 @@ func _physics_process(delta: float) -> void:
 	_accumulator += _ticks_per_frame
 
 	var mouse: Vector2 = _view.mouse_in_view()
+	var acted: bool = false
 	while _accumulator >= 1.0:
-		_sim.step(_input.sample(mouse))
+		var inp: SimInput = _input.sample(mouse)
+		acted = acted or inp.left or inp.right or inp.jump or inp.jump_pressed or inp.eat or inp.shoot or inp.shoot_released
+		_sim.step(inp)
 		_input.end_tick()
 		_accumulator -= 1.0
+	_clock.advance(delta, acted, is_equal_approx(Settings.game_speed, 1.0))
 
 	_sim.update_camera()
 	if _sim.player.dead and not _recovering:
@@ -155,8 +169,12 @@ func _physics_process(delta: float) -> void:
 
 	if _sim.player.won and not _win_recorded:
 		_win_recorded = true
+		_clock.finish()
 		if _mode == Mode.OFFICIAL:
 			Progress.mark_cleared(_slot)
+			if _clock.ranked and _clock.started:
+				_new_record = Progress.record_time(_record_key, _clock.seconds)
+				_best_seconds = Progress.best_time(_record_key)
 	elif not _sim.player.won:
 		_win_recorded = false
 
@@ -168,6 +186,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	_refresh_clock()
 	_view.rewinding = _sim.player.dead
 	_view.sim = _sim
 	if _view.rewinding:
@@ -244,6 +263,36 @@ func _restart() -> void:
 	_accumulator = 0.0
 	_time_scale = 1.0
 	toast_requested.emit("關卡已重新開始")
+
+
+func _reset_clock() -> void:
+	_clock.reset(_mode == Mode.OFFICIAL and is_equal_approx(Settings.game_speed, 1.0))
+	_new_record = false
+	_win_recorded = false
+	_timer_text = ""
+
+
+func result_summary() -> String:
+	var result: String = "通關 %s" % LevelTimer.format_time(_clock.seconds)
+	if not _clock.ranked:
+		return result + " · 練習回合"
+	return result + (" · 新紀錄！" if _new_record else "")
+
+
+func _refresh_clock() -> void:
+	var text: String = ("通關 " if _clock.finished else "計時 ") + LevelTimer.format_time(_clock.seconds)
+	if text != _timer_text:
+		_time_label.text = text
+		_timer_text = text
+	_time_label.modulate = Palette.EMERALD_400 if _clock.finished else Palette.WHITE
+	if not _clock.ranked:
+		_best_time_label.text = "練習回合 · 不更新紀錄"
+	elif _new_record:
+		_best_time_label.text = "新紀錄！"
+	elif _best_seconds > 0.0:
+		_best_time_label.text = "最佳 " + LevelTimer.format_time(_best_seconds)
+	else:
+		_best_time_label.text = "尚無紀錄" if _clock.started else "首次操作開始計時"
 
 
 ## Crumbs fly off the block the player is swallowing. Cosmetic only, so they

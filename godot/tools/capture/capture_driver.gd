@@ -9,10 +9,46 @@ var _app: App
 
 func run() -> void:
 	SavePaths.wipe_sandbox()
+	Progress.reload_from_disk()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var app_scene: PackedScene = load("res://src/app/app.tscn")
 	_app = app_scene.instantiate()
 	get_tree().root.add_child(_app)
+	if "--timer" in OS.get_cmdline_user_args():
+		Settings.set_game_speed(1.0)
+		LevelStore.save_custom(31, LevelLibrary.built_in_level(31))
+		_app.play_official(31)
+		await _wait(2.5)
+		var timer_game: GameScreen = _screen() as GameScreen
+		var press: InputEventAction = InputEventAction.new()
+		press.action = InputBindings.MOVE_RIGHT
+		press.pressed = true
+		timer_game.call(&"_handle_game_event", press)
+		await _wait(0.6)
+		press.pressed = false
+		timer_game.call(&"_handle_game_event", press)
+		await _wait(0.2)
+		await _shot("level_timer_playing")
+		LevelStore.save_custom(11, LevelLibrary.built_in_level(11))
+		_app.play_official(11)
+		await _wait(0.3)
+		press.pressed = true
+		(_screen() as GameScreen).call(&"_handle_game_event", press)
+		var limit: int = 0
+		while _screen() is GameScreen and _sim().slot == 11 and limit < 600:
+			await get_tree().physics_frame
+			limit += 1
+		press.pressed = false
+		(_screen() as GameScreen).call(&"_handle_game_event", press)
+		_app.show_menu()
+		await _wait(0.4)
+		var timer_menu: MainMenu = _screen() as MainMenu
+		timer_menu.setup(GameConstants.world_of_slot(11), false)
+		timer_menu.call(&"_refresh")
+		await _wait(0.2)
+		await _shot("level_timer_records")
+		get_tree().quit(0)
+		return
 	if "--tile-style" in OS.get_cmdline_user_args():
 		await _wait(0.3)
 		get_window().size = Vector2i(1280, 720)

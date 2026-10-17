@@ -77,12 +77,19 @@ func _ready() -> void:
 		if last_slot == 10:
 			last_slot = 30
 		slot = first_slot
+	if "--world4" in OS.get_cmdline_user_args():
+		OUT = "res://build/recordings/world4"
+		if first_slot == 1:
+			first_slot = 31
+		if last_slot == 10:
+			last_slot = 40
+		slot = first_slot
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	if "--prepare" in OS.get_cmdline_user_args():
 		_prepare()
 		return
 	SavePaths.wipe_sandbox()
-	if "--world3" in OS.get_cmdline_user_args():
+	if "--world3" in OS.get_cmdline_user_args() or "--world4" in OS.get_cmdline_user_args():
 		for stage: int in range(first_slot, last_slot + 1):
 			var imported: LevelRepository.ImportResult = LevelStore.import_text(FileAccess.get_file_as_string(OUT + "/maps/slot_%d.json" % stage), stage)
 			if not imported.ok:
@@ -100,7 +107,7 @@ func _ready() -> void:
 	_begin()
 
 func recording_level(stage: int) -> LevelData:
-	if "--world3" in OS.get_cmdline_user_args():
+	if "--world3" in OS.get_cmdline_user_args() or "--world4" in OS.get_cmdline_user_args():
 		return LevelCodec.decode_document(JSON.parse_string(FileAccess.get_file_as_string(OUT + "/maps/slot_%d.json" % stage)))
 	return LevelLibrary.shipped_level(stage)
 
@@ -110,6 +117,7 @@ func _prepare() -> void:
 		var direct_path: String = OUT + "/direct_%d.json" % stage
 		if FileAccess.file_exists(direct_path):
 			var direct_sim: GameSim = GameSim.new()
+			if stage == 40 and "--world4" in OS.get_cmdline_user_args():direct_sim.rng.set_seed(7)
 			direct_sim.load_level(stage, recording_level(stage), LevelLibrary.boss_kind_for_slot(stage))
 			direct_sim.rng.set_seed(7)
 			direct_sim.bullet_time_enabled = false
@@ -198,7 +206,7 @@ func _macro(sim: Recorder, action: String, held: bool) -> bool:
 func _begin() -> void:
 	app.play_official(slot)
 	game = app.get("_screen") as GameScreen
-	if "--world3" in OS.get_cmdline_user_args():
+	if "--world3" in OS.get_cmdline_user_args() or "--world4" in OS.get_cmdline_user_args():
 		assert(JSON.stringify(LevelCodec.encode_document(LevelStore.get_level(slot))) == JSON.stringify(LevelCodec.encode_document(recording_level(slot))), "Recording map differs from snapshot")
 	# Retain the real win animation, but advance only after recording its result.
 	for connection: Dictionary in game.completed.get_connections():
@@ -206,6 +214,10 @@ func _begin() -> void:
 		game.completed.disconnect(callback)
 	replay = ReplayInput.new()
 	replay.sim = game.get("_sim")
+	if slot == 40 and "--world4" in OS.get_cmdline_user_args():
+		# Reproduce the original arena's random distribution before its first frame.
+		replay.sim.rng.set_seed(7)
+		replay.sim.load_level(slot,recording_level(slot),LevelLibrary.boss_kind_for_slot(slot))
 	replay.sim.rng.set_seed(7)
 	replay.frames = records[str(slot)]
 	game.set("_input", replay)

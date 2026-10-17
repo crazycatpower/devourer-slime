@@ -102,13 +102,15 @@ func edit_slot(slot: int) -> void:
 # --- Flow between screens ------------------------------------------------------------
 
 func _on_official_level_completed(slot: int) -> void:
+	var game: GameScreen = _screen as GameScreen
+	var result: String = game.result_summary() if game != null else "挑戰成功！"
 	var next_slot: int = LevelStore.next_campaign_slot(slot)
 	if next_slot != 0:
 		play_official(next_slot)
-		_toasts.show_message("挑戰成功！前往下一關")
+		_toasts.show_message(result + " · 前往下一關")
 	else:
 		show_menu()
-		_toasts.show_message("恭喜通關全部關卡！")
+		_toasts.show_message(result + " · 全部關卡完成！")
 
 
 ## Test play from the editor runs on top of it: the editor is hidden, not
